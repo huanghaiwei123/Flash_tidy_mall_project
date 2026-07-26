@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gdou.mapper.SeckillMapper">
+
+    <resultMap id="BaseResultMap" type="com.gdou.pojo.entity.Seckill">
+            <id property="seckillId" column="seckill_id" />
+            <result property="name" column="name" />
+            <result property="number" column="number" />
+            <result property="price" column="price" />
+            <result property="originalPrice" column="original_price" />
+            <result property="goodsImg" column="goods_img" />
+            <result property="startTime" column="start_time" />
+            <result property="endTime" column="end_time" />
+            <result property="createTime" column="create_time" />
+            <result property="version" column="version" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        seckill_id,name,number,price,original_price,goods_img,
+        start_time,end_time,create_time,version
+    </sql>
+</mapper>
