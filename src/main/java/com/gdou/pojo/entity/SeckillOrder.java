@@ -23,23 +23,18 @@ public class SeckillOrder implements Serializable {
 
     /** 订单ID */
     @TableId(type = IdType.AUTO)
-    @NotNull(message = "订单id不能为空")
     private Long orderId;
 
     /** 秒杀商品ID */
-    @NotNull(message = "商品id不能为空")
     private Long seckillId;
 
     /** 用户ID */
-    @NotNull(message = "用户id不能为空")
     private Long userId;
 
     /** 商品名称（冗余，避免关联查询） */
-    @NotBlank(message="商品名称不能为空")
     private String goodsName;
 
     /** 秒杀价格 */
-    @Min(value=0,message="价格不能小于0")
     private BigDecimal price;
 
     /**

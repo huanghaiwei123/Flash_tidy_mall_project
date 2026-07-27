@@ -25,3 +25,7 @@ spring:
         max-idle: 8
         # 最小空闲连接
         min-idle: 0
+
+jwt:
+  secret: gdou-seckill-project-jwt-secret-key-2026 #秘钥，长度至少32位
+  expiration:  3600000 #token过期时间，设置为60分钟

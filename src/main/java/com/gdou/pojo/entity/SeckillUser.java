@@ -22,22 +22,16 @@ public class SeckillUser implements Serializable {
 
     /** 用户ID */
     @TableId(type = IdType.AUTO)
-    @NotNull(message = "订单id不能为空")
     private Long id;
 
     /** 手机号（登录账号） */
-    @NotBlank(message = "手机号不能为空")
-    @Pattern(regexp = "^(?:(?:\\+|00)86)?1\\d{10}$",message = "手机号不匹配")
     private String phone;
 
     /** 昵称 */
     private String nickname;
 
-    /** MD5加密密码 */
+    /** Bcrypt加密密码 */
     private String password;
-
-    /** 密码盐值 */
-    private String salt;
 
     /** 头像地址 */
     private String avatar;

@@ -22,22 +22,18 @@ public class Seckill implements Serializable {
 
     /** 商品库存id */
     @TableId(type = IdType.AUTO)
-    @NotNull(message = "商品id不能为空")
     private Long seckillId;
 
     /** 商品名称 */
     private String name;
 
     /** 库存数量 */
-    @Min(value=0,message = "库存不能小于0")
     private Integer number;
 
     /** 秒杀价格 */
-    @Min(value=0,message = "商品价格不能小于0")
     private BigDecimal price;
 
     /** 原价 */
-    @Min(value=0,message = "商品价格不能小于0")
     private BigDecimal originalPrice;
 
     /** 商品图片 */

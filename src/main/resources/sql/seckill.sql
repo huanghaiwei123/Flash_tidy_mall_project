@@ -23,7 +23,7 @@ CREATE TABLE `seckill_user` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '用户ID',
   `phone` varchar(20) NOT NULL COMMENT '手机号（登录账号）',
   `nickname` varchar(50) NOT NULL COMMENT '昵称',
-  `password` varchar(100) NOT NULL COMMENT 'MD5加密密码',
+  `password` varchar(200) NOT NULL COMMENT 'Bcrypt加密密码',
   `salt` varchar(50) NOT NULL COMMENT '密码盐值',
   `avatar` varchar(200) DEFAULT NULL COMMENT '头像地址',
   `register_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',

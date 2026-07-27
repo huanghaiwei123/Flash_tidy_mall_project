@@ -1,10 +1,8 @@
-package com.gdou.common;
+package com.gdou.exception;
 
 import com.gdou.Constant.ResultCodeConstant;
 import com.gdou.Constant.ResultMessageConstant;
-import com.gdou.exception.RepeatKillException;
-import com.gdou.exception.SeckillCloseException;
-import com.gdou.exception.SeckillException;
+import com.gdou.common.Result;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
