@@ -36,7 +36,7 @@ public class SeckillUser implements Serializable {
     /** 头像地址 */
     private String avatar;
 
-    /** 注册时间 */
+    /** 注册时间,默认当前时间 */
     private LocalDateTime registerTime;
 
     /** 最后登录时间 */

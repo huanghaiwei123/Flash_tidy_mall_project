@@ -11,6 +11,7 @@ public class Result<T> {
     String message;
     Integer code;
     T data;
+    public Result() {}
     public static<T> Result<T> success(T data){
         return new Result(ResultMessageConstant.SUCCESS,ResultCodeConstant.SUCCESS,data);
     }
@@ -25,20 +26,5 @@ public class Result<T> {
     }
     public static<T> Result error(String message,Integer code,T data) {
         return new Result(message,code,data);
-    }
-
-    /** 秒杀关闭 */
-    public  static<T> Result<T> seckillClosed() {
-        return error(ResultMessageConstant.SeckillClose,ResultCodeConstant.SeckillClose,null);
-    }
-
-    /** 重复秒杀 */
-    public static<T>  Result<T> repeatKill() {
-        return error(ResultMessageConstant.RepeatKil,ResultCodeConstant.RepeatKill, null);
-    }
-
-    /** 库存不足 */
-    public static<T>  Result<T> soldOut() {
-        return error(ResultMessageConstant.StockEmpty,ResultCodeConstant.StockEmpty,null);
     }
 }

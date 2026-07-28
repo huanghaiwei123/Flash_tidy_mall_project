@@ -4,6 +4,9 @@ spring:
    username: root
    password: 123456
    driver-class-name: com.mysql.cj.jdbc.Driver
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
 
   redis:
     # Redis服务器地址
@@ -29,3 +32,8 @@ spring:
 jwt:
   secret: gdou-seckill-project-jwt-secret-key-2026 #秘钥，长度至少32位
   expiration:  3600000 #token过期时间，设置为60分钟
+
+#开启mybatis-plus驼峰映射
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true

@@ -24,14 +24,12 @@ CREATE TABLE `seckill_user` (
   `phone` varchar(20) NOT NULL COMMENT '手机号（登录账号）',
   `nickname` varchar(50) NOT NULL COMMENT '昵称',
   `password` varchar(200) NOT NULL COMMENT 'Bcrypt加密密码',
-  `salt` varchar(50) NOT NULL COMMENT '密码盐值',
-  `avatar` varchar(200) DEFAULT NULL COMMENT '头像地址',
+  `avatar` varchar(200) DEFAULT NULL COMMENT '头`nickname` varchar(50) NOT NULL COMMENT ''昵称''像地址',
   `register_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
   `last_login_time` timestamp NULL DEFAULT NULL COMMENT '最后登录时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_phone` (`phone`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8 COMMENT='秒杀用户表';
-
 -- =============================================
 -- 2. 秒杀商品表（增强版：增加图片、价格字段）
 -- =============================================

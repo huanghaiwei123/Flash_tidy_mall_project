@@ -1,9 +1,10 @@
 package com.gdou.service;
 
+import com.gdou.common.Result;
+import com.gdou.pojo.entity.SeckillUser;
 import org.springframework.stereotype.Service;
 
-@Service
-public interface LoginService {
-    void login();
 
+public interface LoginService {
+    Result login(SeckillUser seckillUser);
 }

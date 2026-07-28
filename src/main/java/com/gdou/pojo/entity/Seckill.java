@@ -3,6 +3,7 @@ package com.gdou.pojo.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import lombok.Data;
 
 import javax.validation.constraints.Min;
@@ -48,6 +49,7 @@ public class Seckill implements Serializable {
     /** 创建时间 */
     private LocalDateTime createTime;
 
+    @Version
     /** 版本号（乐观锁） */
     private Integer version;
 }

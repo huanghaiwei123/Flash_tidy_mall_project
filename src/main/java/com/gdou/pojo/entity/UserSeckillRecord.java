@@ -13,11 +13,13 @@ import java.time.LocalDateTime;
  * 用户秒杀记录表
  */
 @Data
+@TableName("user_seckill_record")
 public class UserSeckillRecord implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     /** 记录ID */
+    @TableId(type = IdType.AUTO)
     private Long id;
 
     /** 秒杀商品ID */
