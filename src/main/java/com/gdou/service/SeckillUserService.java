@@ -2,7 +2,6 @@ package com.gdou.service;
 
 import com.gdou.pojo.entity.SeckillUser;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.springframework.stereotype.Service;
 
 /**
 * @author huanghaiwei

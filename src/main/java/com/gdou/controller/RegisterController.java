@@ -1,5 +1,4 @@
 package com.gdou.controller;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gdou.common.Result;
 import com.gdou.pojo.dto.RegisterDto;
 import com.gdou.pojo.entity.SeckillUser;
@@ -20,8 +19,6 @@ import javax.validation.Valid;
 public class RegisterController {
     @Autowired
     private RegisterService registerService;
-    @Autowired
-    private ObjectMapper objectMapper;
     @PostMapping("/register")
     public Result register(@RequestBody @Valid RegisterDto registerDto) {
         log.info("用户注册:{}", registerDto);

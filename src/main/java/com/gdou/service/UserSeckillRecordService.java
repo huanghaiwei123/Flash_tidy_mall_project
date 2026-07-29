@@ -1,8 +1,8 @@
 package com.gdou.service;
 
+import com.gdou.common.Result;
 import com.gdou.pojo.entity.UserSeckillRecord;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.springframework.stereotype.Service;
 
 /**
 * @author huanghaiwei
@@ -10,5 +10,5 @@ import org.springframework.stereotype.Service;
 * @createDate 2026-07-26 16:48:10
 */
 public interface UserSeckillRecordService extends IService<UserSeckillRecord> {
-
+    Result seckillResult(Long seckillId);
 }

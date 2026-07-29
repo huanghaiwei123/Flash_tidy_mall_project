@@ -3,9 +3,8 @@ package com.gdou.pojo.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Builder;
 import lombok.Data;
-
-import javax.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -14,6 +13,7 @@ import java.time.LocalDateTime;
  */
 @Data
 @TableName("user_seckill_record")
+@Builder
 public class UserSeckillRecord implements Serializable {
 
     private static final long serialVersionUID = 1L;

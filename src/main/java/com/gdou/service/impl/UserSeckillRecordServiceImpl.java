@@ -1,9 +1,13 @@
 package com.gdou.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.gdou.common.Result;
 import com.gdou.pojo.entity.UserSeckillRecord;
 import com.gdou.service.UserSeckillRecordService;
 import com.gdou.mapper.UserSeckillRecordMapper;
+import com.gdou.util.UserHolder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -14,7 +18,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserSeckillRecordServiceImpl extends ServiceImpl<UserSeckillRecordMapper, UserSeckillRecord>
     implements UserSeckillRecordService{
-
+    @Autowired
+    private UserSeckillRecordMapper userSeckillRecordMapper;
+    @Override
+    public Result seckillResult(Long seckillId) {
+        LambdaQueryWrapper<UserSeckillRecord> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserSeckillRecord::getSeckillId, seckillId);
+        wrapper.eq(UserSeckillRecord::getUserId, UserHolder.getUserId());
+        UserSeckillRecord record = userSeckillRecordMapper.selectOne(wrapper);
+        return Result.success(record);
+    }
 }
 
 

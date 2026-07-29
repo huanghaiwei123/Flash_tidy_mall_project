@@ -1,11 +1,11 @@
 package com.gdou.service;
 
 import com.gdou.common.Result;
+import com.gdou.pojo.dto.SeckillDto;
 import com.gdou.pojo.entity.Seckill;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.springframework.stereotype.Service;
 
-import javax.validation.constraints.Min;
 import java.util.List;
 
 /**
@@ -17,9 +17,23 @@ import java.util.List;
 public interface SeckillService extends IService<Seckill> {
     /**
      * 获取商品列表
-     * @return
      */
     List<Seckill> getSeckillList();
 
-    Result onSeckill();
+    Result onSeckill(Long seckillId, String userId);
+
+    /**
+     * 新增秒杀活动
+     */
+    Result addSeckill(SeckillDto seckillDto);
+
+    /**
+     * 修改秒杀活动
+     */
+    Result updateSeckill(Long id, SeckillDto seckillDto);
+
+    /**
+     * 删除秒杀活动
+     */
+    Result deleteSeckill(Long id);
 }

@@ -29,6 +29,19 @@ spring:
         # 最小空闲连接
         min-idle: 0
 
+  rabbitmq:
+  host: 192.168.147.131
+  port: 5672
+  username: guest
+  password: guest
+  listener:
+    simple:
+      retry:
+        enabled: true        # 消费失败自动重试
+        max-attempts: 3      # 最多重试 3 次
+        initial-interval: 1000ms  # 重试间隔 1 秒
+
+
 jwt:
   secret: gdou-seckill-project-jwt-secret-key-2026 #秘钥，长度至少32位
   expiration:  3600000 #token过期时间，设置为60分钟
@@ -37,3 +50,5 @@ jwt:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+
+

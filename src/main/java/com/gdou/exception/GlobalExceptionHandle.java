@@ -1,7 +1,6 @@
 package com.gdou.exception;
 
 import com.gdou.Constant.ResultCodeConstant;
-import com.gdou.Constant.ResultMessageConstant;
 import com.gdou.common.Result;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.MethodArgumentNotValidException;

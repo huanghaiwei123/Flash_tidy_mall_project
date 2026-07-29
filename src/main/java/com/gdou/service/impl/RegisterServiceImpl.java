@@ -9,7 +9,6 @@ import com.gdou.pojo.entity.SeckillUser;
 import com.gdou.service.RegisterService;
 import com.gdou.util.PasswordEncoder;
 import lombok.extern.slf4j.Slf4j;
-import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
