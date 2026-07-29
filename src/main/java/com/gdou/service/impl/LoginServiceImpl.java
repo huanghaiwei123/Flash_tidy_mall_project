@@ -1,5 +1,4 @@
 package com.gdou.service.impl;
-
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gdou.Constant.ResultCodeConstant;
 import com.gdou.common.Result;
@@ -9,14 +8,10 @@ import com.gdou.pojo.entity.SeckillUser;
 import com.gdou.service.LoginService;
 import com.gdou.util.JwtUtil;
 import com.gdou.util.PasswordEncoder;
-import com.gdou.util.ThreadLocalUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.HashMap;
 
 @Service

@@ -3,6 +3,7 @@ package com.gdou.pojo.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Builder;
 import lombok.Data;
 
 import javax.validation.constraints.Min;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
  */
 @Data
 @TableName("seckill_order")
+@Builder
 public class SeckillOrder implements Serializable {
 
     private static final long serialVersionUID = 1L;

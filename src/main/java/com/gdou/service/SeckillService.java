@@ -21,5 +21,7 @@ public interface SeckillService extends IService<Seckill> {
      */
     List<Seckill> getSeckillList();
 
-    Result onSeckill();
+    Result onSeckill(Long seckillId,String userId);
+
+    Result warmStock(Long seckillId);
 }

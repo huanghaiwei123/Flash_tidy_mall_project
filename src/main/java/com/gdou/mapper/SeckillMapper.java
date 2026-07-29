@@ -2,6 +2,7 @@ package com.gdou.mapper;
 
 import com.gdou.pojo.entity.Seckill;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Update;
 
 /**
 * @author huanghaiwei
@@ -10,7 +11,8 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @Entity com.gdou.entity.Seckill
 */
 public interface SeckillMapper extends BaseMapper<Seckill> {
-
+    @Update("update seckill set number=number-1 where number>0 and seckill_id=#{seckillId}")
+    int deductById(Long seckillId);
 }
 
 
