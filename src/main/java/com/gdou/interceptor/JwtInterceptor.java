@@ -19,24 +19,29 @@ public class JwtInterceptor implements HandlerInterceptor {
     private JwtUtil jwtUtil;
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-//如果不是controller方法则直接放行
-        if (!(handler instanceof HandlerMethod)){
+        if (!(handler instanceof HandlerMethod)) {
             return true;
         }
-//        判断请求头是否存在
+
+        // 压测专用：通过 X-UserId 头直接指定用户，跳过 JWT（上线前删除此段）
+        String testUserId = request.getHeader("X-UserId");
+        if (testUserId != null && !testUserId.isEmpty()) {
+            request.setAttribute("userId", testUserId);
+            UserHolder.setUserId(testUserId);
+            return true;
+        }
+
+        // 正常 JWT 流程
         String header = request.getHeader("Authorization");
-        if(header == null || header.isEmpty()){
-            writeError("未登录请返回登录", ResultCodeConstant.LOGIN_ERROR,response);
+        if (header == null || header.isEmpty()) {
+            writeError("未登录请返回登录", ResultCodeConstant.LOGIN_ERROR, response);
             return false;
         }
-//        取token
         String token = header.startsWith("Bearer ") ? header.substring(7) : header;
-//        判断jwt身份令牌是否有效
-        if(!jwtUtil.validateToken(token)){
-            writeError("token无效或已过期", ResultCodeConstant.NOT_LOGIN,response);
+        if (!jwtUtil.validateToken(token)) {
+            writeError("token无效或已过期", ResultCodeConstant.NOT_LOGIN, response);
             return false;
         }
-//        token有效则取出id和手机号存到request中,供controller使用
         String phone = jwtUtil.getPhone(token);
         String userId = jwtUtil.getUserId(token);
         request.setAttribute("userId", userId);

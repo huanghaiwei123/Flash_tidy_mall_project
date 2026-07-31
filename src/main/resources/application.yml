@@ -4,42 +4,42 @@ spring:
    username: root
    password: 123456
    driver-class-name: com.mysql.cj.jdbc.Driver
+
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
 
   redis:
-    # Redis服务器地址
-    host: 192.168.147.131
-    # Redis服务器端口
-    port: 6379
-    # Redis数据库索引（默认为0）
-    database: 0
-    # 连接超时时间（毫秒）
     timeout: 10000ms
-    # 连接池配置
+
     lettuce:
       pool:
-        # 最大连接数（负值表示没有限制）
-        max-active: 8
-        # 最大阻塞等待时间（负值表示没有限制）
-        max-wait: -1ms
-        # 最大空闲连接
-        max-idle: 8
-        # 最小空闲连接
-        min-idle: 0
+        max-active: 200
+        max-wait: 3000ms
+        max-idle: 50
+        min-idle: 10
+    cluster:
+      nodes:
+        - 192.168.147.131:7000
+        - 192.168.147.131:7001
+        - 192.168.147.131:7002
+        - 192.168.147.131:7003
+        - 192.168.147.131:7004
+        - 192.168.147.131:7005
+      max-redirects: 3
+
 
   rabbitmq:
-  host: 192.168.147.131
-  port: 5672
-  username: guest
-  password: guest
-  listener:
-    simple:
-      retry:
-        enabled: true        # 消费失败自动重试
-        max-attempts: 3      # 最多重试 3 次
-        initial-interval: 1000ms  # 重试间隔 1 秒
+    host: 192.168.147.131
+    port: 5672
+    username: admin
+    password: admin123
+    listener:
+      simple:
+        retry:
+          enabled: true        # 消费失败自动重试
+          max-attempts: 3      # 最多重试 3 次
+          initial-interval: 1000ms  # 重试间隔 1 秒
 
 
 jwt:
@@ -50,5 +50,25 @@ jwt:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+
+alipay:
+  app-id: 9021000166627774
+  merchant-private-key: MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCIZX4h83BcMx5v3gaI42s8anGcrBFFc6Apyt1BL/Yi0UDG0nFupfsMMRiW+gVq2lsLFC+wxVR9jFO+vFyLymIbwFHROz3DVsntQcSp3EyYKYZy0QvCGX4NhhOhAEsf8EHXNmF9L9tMQHeRALS3i2zhS8IEWrXJO8NsyM+TgVi/8ag0/3+4BTo9KZgojUWKXqCyFsRg47aWk9X4Wj3m/fbkcA3l6hXJ/NDguT1mLTqn9Vg0StS3pUx9eU+LnJn3GSJhfG5kOnTjgVAajuWh+Dp3+nFLuxw+ggtjiQTDM2ctlVRdRS2yfUi+X1vXEfvRzEV/BhjD1QyqNyLYnkc05WPNAgMBAAECggEAR+GE6YuLyWs/PSE7PGTtnLdUDIc5yuo2nA/HLpWCF7NDegRptzBN74zoMpisxjUxCdOnlndIIaoUcE6AT0NnFMzz0VpxIELaw+iHJiVtUDuCGXxFwBMDNUlViuHGtZw+dpa4JetUnQjUelxu4NPfm5P7OaQ8bULLqMbjbg8aoHyC/KUY9X1eXbmxCrlrhOPYiFB1IBQmcRMFwWz1TFGz370nMDnMAF/WhIx7m4qqVw/leyqi1SiFkpOBzi41yebIjEJOgOZZYfFDcZzxNo3iJ81hm13RBBpCVQbivhXdgXzyrr4JmBmxud+E2NIP6OCBSRv+zgDbwJ+shTv4E5c/gQKBgQD6cSkB+LA8LM61d99lycAxbghlfTQWzDfw9+nLiCZdxTQKN5HnG/8AVgu4NEKDabT4CdoRSPN7UwwIUOHH0J1mYMEWQNyVRxroX/2b/mp13aR+kLzPD1GySHzuYOWlYVBZu5vdkA+RUvKKNjGcZUzFfsVkjN1v7G07fzX//Lky0QKBgQCLbGdfHbr7/sXlZmBqXyd1n8+YF5seTm6kHNZUFwLiLhh1fc10j1YKvSWgDmzyncb2BCnUUZlwyP5vOkFZ6PVdMazXLEylRn0bDR7092vYRuiFGXzHeF3ii+zD+AJkwDqSNjW50MgpGF7Rxi6vEUvSSxN5zqL7gHcK4FG4hkHIPQKBgCeY4Lz5DxRUmVJD48R6Q7MNDLLPOv8nxuiIqiSOIFLPLU04QA9kc8sfz7aOPL3+ZqiZFiuJd0XWeZ6O+0PWjixzu9PC6Z2Ioo5/LuANN9Pu+WUxiUjLyUUBBQ/DrkuZuVSWvywm7O8zSDnmG634rkzDoH4nb5OUtCimEmmpEbchAoGAFezMLLb+KpacBEEfNFsWV3b0LFS5/gATghdO1RZxS6Q4EHHiF0xbGYE5I3xhQZ3yJcnt0geq+4OAD3m3wS3TN/6R0ZyTyQHWtqRPk/I8sVwlQJkLeErDaNbcOs0Lg1B/ZXLE7B2a/Gtqrc5elQVBSSapP2RxWN+Q2NMBxuTF/3kCgYEA5dceVQWzJxxwp7Ut4BXFYYsPydNCD1sYomOlEfG4bwRWjWqL5XU5mbFtMHzSTGZKtnC0T4jAQuuzPIkI+C5UtTXP4zty2tDjVNfNojbDZLWU99/Nwg43U/kYOLoKYMtUuAY5+tGgzTnt0v3i2tud8Ij0h1EXFt9Mb46XC7o/iKY=
+  alipay-public-key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs803aIz55UBpBjboZDK3tIAWPZflP33o1pUZRo4TG0bMFFFR68by8BOEB06P8uAWtKLpvJGi5YXb0f1X2QwmupQbzyVsjqemTKPHzdPv6CSlNCUvRS9cpPTlVbG6B0kFPKA+j5O7sYYEYjNqnsMXCgrMzxGO0d9kbKXdDKnFw32ilCUFz3qfK9WGaZDks3fHJtBJC9YwoLgLoiPbuhN9HExHWzT2F0emGWPwsmz6R006GtsMYeU4pwELfVp4p478Ni43NG9lrVdDaDEYaJYYbOvxJqVLySnlc2iHaun5oY+4SQo8vMrTpc1NiWVziUrZNch5G8pXcrXMg4qIGpN0LQIDAQAB
+  gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
+  notify-url:  http://qc6ca6cb.natappfree.cc/hhw/pay/notify
+  return-url: http://localhost:8080/hhw/pay/return
+  sign-type: RSA2
+  charset: UTF-8
+  format: json
+
+
+server:
+  tomcat:
+    threads:
+      max: 1000        # 最大工作线程
+      min-spare: 100   # 最小空闲线程
+    accept-count: 2000 # 等待队列长度
+
 
 

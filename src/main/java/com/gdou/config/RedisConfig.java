@@ -39,10 +39,18 @@ public class RedisConfig {
             return template;
         }
 
-        @Bean
+        @Bean("SeckillScript")
         public DefaultRedisScript redisScript() {
             DefaultRedisScript script = new DefaultRedisScript();
             script.setLocation(new ClassPathResource("lua/seckill.lua"));
+            script.setResultType(Long.class);
+            return script;
+        }
+
+        @Bean("RateLimitScript")
+        public DefaultRedisScript redisScript2() {
+            DefaultRedisScript script = new DefaultRedisScript<>();
+            script.setLocation(new ClassPathResource("lua/ratelimit.lua"));
             script.setResultType(Long.class);
             return script;
         }

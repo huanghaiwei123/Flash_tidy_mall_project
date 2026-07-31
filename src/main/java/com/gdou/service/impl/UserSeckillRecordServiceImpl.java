@@ -2,6 +2,7 @@ package com.gdou.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.gdou.Constant.ResultCodeConstant;
 import com.gdou.common.Result;
 import com.gdou.pojo.entity.UserSeckillRecord;
 import com.gdou.service.UserSeckillRecordService;
@@ -9,6 +10,8 @@ import com.gdou.mapper.UserSeckillRecordMapper;
 import com.gdou.util.UserHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
 * @author huanghaiwei
@@ -21,12 +24,14 @@ public class UserSeckillRecordServiceImpl extends ServiceImpl<UserSeckillRecordM
     @Autowired
     private UserSeckillRecordMapper userSeckillRecordMapper;
     @Override
-    public Result seckillResult(Long seckillId) {
+    public Result seckillResult() {
         LambdaQueryWrapper<UserSeckillRecord> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserSeckillRecord::getSeckillId, seckillId);
         wrapper.eq(UserSeckillRecord::getUserId, UserHolder.getUserId());
-        UserSeckillRecord record = userSeckillRecordMapper.selectOne(wrapper);
-        return Result.success(record);
+        List<UserSeckillRecord> records = userSeckillRecordMapper.selectList(wrapper);
+        if (records == null||records.size()==0) {
+            return Result.error("小同志，当前还没有秒杀订单哦", ResultCodeConstant.ERROR,null);
+        }
+        return Result.success(records);
     }
 }
 

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gdou.Constant.RedisConstant;
 import com.gdou.Constant.ResultCodeConstant;
 import com.gdou.common.Result;
+import com.gdou.config.SeckillBloomFilter;
 import com.gdou.exception.BusinessException;
 import com.gdou.mq.SeckillMessage;
 import com.gdou.mq.SeckillMqSender;
@@ -19,8 +20,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
+
+import javax.annotation.Resource;
 import java.time.LocalDateTime;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -40,10 +43,12 @@ public class SeckillServiceImpl extends ServiceImpl<SeckillMapper, Seckill>
     private UserSeckillRecordMapper userSeckillRecordMapper;
     @Autowired
     private SeckillOrderMapper seckillOrderMapper;
-    @Autowired
+    @Resource(name="SeckillScript")
     private DefaultRedisScript script;
     @Autowired
     private SeckillMqSender seckillMqSender;
+    @Autowired
+    private SeckillBloomFilter seckillBloomFilter;
     /**
      * 获取秒杀商品列表
      * @return
@@ -60,33 +65,50 @@ public class SeckillServiceImpl extends ServiceImpl<SeckillMapper, Seckill>
      */
     @Override
     public Result onSeckill(Long seckillId, String userId) {
-        String stockKey=RedisConstant.SECKILL_STOCK+seckillId;
-        String userSeckillRecordKey = RedisConstant.USER_SECKILL_RECORD+":"+userId+":"+seckillId;
-        if(Boolean.FALSE.equals(redisTemplate.hasKey(stockKey))){
-            throw new BusinessException("该秒杀商品不存在，请重试",ResultCodeConstant.ERROR);
+        // 布隆过滤器快速拦截不存在的 ID，防止恶意刷接口打 Redis
+        if (!seckillBloomFilter.mightContain(seckillId)) {
+            throw new BusinessException("秒杀商品不存在", ResultCodeConstant.ERROR);
         }
-//        只让一个用户去查商品是否存在，防止大量用户压垮数据库
-//        查商品是否存在，不存在抛异常
-        Seckill seckill = seckillMapper.selectById(seckillId);
-        if(seckill==null){
-            throw new BusinessException("商品不存在", ResultCodeConstant.ERROR);
+
+        // hash tag {seckillId} 保证同一次秒杀的所有 key 落在 Redis Cluster 同一 slot
+        String stockKey = RedisConstant.SECKILL_STOCK + ":{" + seckillId + "}";
+        String userSeckillRecordKey = RedisConstant.USER_SECKILL_RECORD + ":{" + seckillId + "}:" + userId;
+
+        // 构建 13 个 KEYS：[用户记录, bucket0~9, startTime, endTime]
+        String startKey = RedisConstant.SECKILL_START + ":{" + seckillId + "}";
+        String endKey = RedisConstant.SECKILL_END + ":{" + seckillId + "}";
+        List<String> keys = new ArrayList<>();
+        keys.add(userSeckillRecordKey);                    // KEYS[1]
+        for (int i = 0; i < RedisConstant.BUCKET_COUNT; i++) {
+            keys.add(stockKey + ":" + i);                  // KEYS[2] ~ KEYS[11]
         }
-//        判断秒杀活动是否开启或结束
-        if(seckill.getStartTime().isAfter(LocalDateTime.now())){
-            throw new BusinessException("秒杀活动未开启", ResultCodeConstant.SeckillClose);
-        } else if (seckill.getEndTime().isBefore(LocalDateTime.now())) {
+        keys.add(startKey);                                // KEYS[12]
+        keys.add(endKey);                                  // KEYS[13]
+
+        // Lua 脚本：时间校验 + 防重 + 随机选桶扣库存（一次网络往返）
+        Long result = (Long) redisTemplate.execute(script, keys, System.currentTimeMillis());
+        if (result == -4) {
+            throw new BusinessException("该秒杀商品不存在，请重试", ResultCodeConstant.ERROR);
+        } else if (result == -3) {
             throw new BusinessException("秒杀活动已结束", ResultCodeConstant.SeckillOver);
-        }
-//       lua脚本防止重复下单和原子扣库存
-        Long execute = (Long) redisTemplate.execute(script, Arrays.asList(userSeckillRecordKey,stockKey));
-        if(execute==-1){
+        } else if (result == -2) {
+            throw new BusinessException("秒杀活动未开启", ResultCodeConstant.SeckillClose);
+        } else if (result == -1) {
             throw new BusinessException("用户已经参与过此次秒杀活动", ResultCodeConstant.ERROR);
-        }else if(execute==null||execute==0){
+        } else if (result == null || result == 0) {
             throw new BusinessException("库存不足", ResultCodeConstant.StockEmpty);
         }
-        log.info("用户 {} 秒杀 {}，Redis Lua 扣库存成功", userId, seckillId);
-//        MQ异步创建订单
-        SeckillMessage message = SeckillMessage.builder().seckillId(seckillId).userId(userId).build();
+
+        // result 为 1~10，转成 0-based bucketId
+        int bucketId = result.intValue() - 1;
+        log.info("用户 {} 秒杀 {}，命中桶 {}，Redis Lua 扣库存成功", userId, seckillId, bucketId);
+
+        // MQ 异步创建订单，携带 bucketId 用于失败回滚
+        SeckillMessage message = SeckillMessage.builder()
+                .seckillId(seckillId)
+                .userId(userId)
+                .bucketId(bucketId)
+                .build();
         seckillMqSender.send(message);
         return Result.success("下单成功，已正在自动为您创建订单");
     }
