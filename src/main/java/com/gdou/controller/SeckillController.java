@@ -85,12 +85,11 @@ public class SeckillController {
 
     /**
      * 查询秒杀结果
-     * @param seckillId
      * @return
      */
     @RateLimit
-    @GetMapping("seckillResult/{seckillId}")
-    public Result seckillResult(@PathVariable Long seckillId) {
-        return userSeckillRecordService.seckillResult(seckillId);
+    @GetMapping("seckillResult")
+    public Result seckillResult() {
+        return userSeckillRecordService.seckillResult();
     }
 }

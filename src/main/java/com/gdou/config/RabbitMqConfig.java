@@ -1,4 +1,4 @@
-package com.gdou.controller;
+package com.gdou.config;
 
 import org.springframework.amqp.core.*;
 

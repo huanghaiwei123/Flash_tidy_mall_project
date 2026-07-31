@@ -18,7 +18,9 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/hhw/**")   //拦截所有业务接口
                 .excludePathPatterns("/hhw/login"   //排除登录，注册
                 ,"/hhw/register"
-                ,"/hhw/seckill/seckills");  //查看秒杀商品列表
+                ,"/hhw/seckill/seckills"  //查看秒杀商品列表
+                ,"/hhw/pay/notify"       //支付宝异步回调
+                ,"/hhw/pay/return");
         registry.addInterceptor(rateLimitInterceptor).addPathPatterns("/hhw/seckill/**");
 
     }

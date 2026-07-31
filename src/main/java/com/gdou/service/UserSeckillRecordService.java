@@ -10,5 +10,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
 * @createDate 2026-07-26 16:48:10
 */
 public interface UserSeckillRecordService extends IService<UserSeckillRecord> {
-    Result seckillResult(Long seckillId);
+    Result seckillResult();
 }

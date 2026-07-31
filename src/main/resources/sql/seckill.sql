@@ -71,15 +71,16 @@ CREATE TABLE `seckill_order` (
   `user_id` bigint(20) NOT NULL COMMENT '用户ID',
   `goods_name` varchar(120) NOT NULL COMMENT '商品名称（冗余）',
   `price` decimal(10,2) NOT NULL COMMENT '秒杀价格',
-  `state` tinyint(4) NOT NULL DEFAULT '0' COMMENT '订单状态：0-未支付 1-已支付 2-已取消 3-已退款',
+  `state` int(4) NOT NULL DEFAULT '0' COMMENT '订单状态：0-未支付 1-已支付 2-已取消 3-已退款',
   `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `pay_time` timestamp NULL DEFAULT NULL COMMENT '支付时间',
-  PRIMARY KEY (`order_id`),
+  trade_no VARCHAR(64) DEFAULT NULL COMMENT '支付宝交易号' ,
+PRIMARY KEY (`order_id`),
   KEY `idx_seckill_id` (`seckill_id`),
   KEY `idx_user_id` (`user_id`),
   KEY `idx_create_time` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='秒杀订单表';
-
+desc seckill_order;
 -- =============================================
 -- 4. 用户秒杀记录表（代替原来的 success_killed）
 -- =============================================
@@ -90,7 +91,7 @@ CREATE TABLE `user_seckill_record` (
   `seckill_id` bigint(20) NOT NULL COMMENT '秒杀商品ID',
   `user_id` bigint(20) NOT NULL COMMENT '用户ID',
   `order_id` bigint(20) DEFAULT NULL COMMENT '关联订单ID',
-  `state` tinyint(4) NOT NULL DEFAULT '0' COMMENT '秒杀状态：0-秒杀成功待支付 1-支付成功 -1-秒杀失败',
+  `state` int(4) NOT NULL DEFAULT '0' COMMENT '秒杀状态：0-秒杀成功待支付 1-支付成功 -1-秒杀失败',
   `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_seckill_user` (`seckill_id`, `user_id`),

@@ -14,5 +14,5 @@ end
 
 --扣库存，标记用户已秒杀
 redis.call("decr", stockKey)
-redis.call("set", userSeckillKey, '1')
+redis.call("set", userSeckillKey, '1','EX',1)
 return 1
