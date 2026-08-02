@@ -23,13 +23,13 @@ public class JwtInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // 压测专用：通过 X-UserId 头直接指定用户，跳过 JWT（上线前删除此段）
-        String testUserId = request.getHeader("X-UserId");
-        if (testUserId != null && !testUserId.isEmpty()) {
-            request.setAttribute("userId", testUserId);
-            UserHolder.setUserId(testUserId);
-            return true;
-        }
+//        // 压测专用：通过 X-UserId 头直接指定用户，跳过 JWT（上线前删除此段）
+//        String testUserId = request.getHeader("X-UserId");
+//        if (testUserId != null && !testUserId.isEmpty()) {
+//            request.setAttribute("userId", testUserId);
+//            UserHolder.setUserId(testUserId);
+//            return true;
+//        }
 
         // 正常 JWT 流程
         String header = request.getHeader("Authorization");

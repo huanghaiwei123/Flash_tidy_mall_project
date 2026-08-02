@@ -26,8 +26,8 @@ public class SeckillTask {
     @Autowired
     private SeckillBloomFilter bloomFilter;
 
-    //    每30分钟检查一次是否有要添加的秒杀活动，活动提前一天上线，顺便解决redis宕机导致服务器缓存丢失的问题
-    @Scheduled(cron = "0 */30 * * * ?")
+    //    每12小时检查一次是否有要添加的秒杀活动，活动提前一天上线，顺便解决redis宕机导致服务器缓存丢失的问题
+    @Scheduled(cron = "0 0 */12 * * ?")
     public void autoWarmStock() {
         LambdaQueryWrapper<Seckill> wrapper = new LambdaQueryWrapper<>();
         wrapper.le(Seckill::getStartTime, LocalDateTime.now().plusDays(1L));

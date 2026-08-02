@@ -1,6 +1,6 @@
 # 秒杀项目开发进度
 
-> 最后更新：2026-08-02
+> 最后更新：2026-08-02（压测收官 + 动态 URL）
 
 ## 项目概况
 
@@ -119,17 +119,27 @@
 - [x] `SeckillServiceImpl.onSeckill`：布隆过滤器快速拦截不存在的 ID
 
 ### 15. 性能压测与优化 ✅
-- [x] `SeckillLoadTest`：10000 请求 / 500 并发 / seckillId=1000
-- [x] **压测记录**（见下表）
-- [x] 诊断并修复 3 个瓶颈
+- [x] `SeckillLoadTest`：自研 Java 压测工具
+- [x] JMeter 5.6.3：标准化压测（聚合报告）
+- [x] Ramp-Up=0 极限压测：单机峰值 **1131 QPS / 0 异常**
+- [x] 诊断并修复 5 个瓶颈（Redis 连接池 / Tomcat 线程 / MQ 异步 / 限流 Lua 序列化 / 客户端连接数）
 
-#### 压测结果对比
+#### 压测结果（JMeter Ramp-Up=0）
 
-| 轮次 | 改动 | 成功 | 失败 | QPS | 耗时 |
-|:---:|------|:---:|:---:|:---:|:---:|
-| ① | 原始（Redis 8连接 + Tomcat 默认200 + 同步MQ） | 9561 | 439 | 936 | 10679ms |
-| ② | Tomcat→1000 + Redis池→200 + MQ异步 | 10000 | 0 | 1316 | 7598ms |
-| ③ | 限流器 Lua 合并 INCR+EXPIRE（待测） | - | - | - | - |
+| 线程数 | 异常率 | 平均响应 | 最大响应 | QPS |
+|:---:|:---:|:---:|:---:|:---:|
+| 100 | 0% | 49 ms | 86 ms | 885 |
+| 200 | 0% | 74 ms | 140 ms | 1036 |
+| 300 | 0% | 84 ms | 181 ms | 1075 |
+| 500 | 0% | 84 ms | 201 ms | **1131** |
+
+> **单机极限 ~1131 QPS**。核心链路：Redis Lua 原子扣库存 → MQ 异步落库，平均响应 84ms。架构正确，瓶颈在 SpringMVC 框架层，扩容可线性提升。
+
+### 16. 秒杀 URL 动态化 ✅
+- [x] `GET /hhw/seckill/getToken/{seckillId}`：返回 5 秒有效的一次性随机 token
+- [x] `POST /hhw/seckill/onseckill/{seckillId}?token=xxx`：先校验 token 再秒杀
+- [x] 前端两步秒杀：先拿 token → 带 token 秒杀
+- [x] **防脚本原理**：token 是秒杀瞬间才下发的，脚本无法提前知道完整 URL
 
 #### 瓶颈分析
 
@@ -139,6 +149,7 @@
 | **Tomcat 线程不足** | 默认 max=200, accept=100，500 并发超出直接拒绝 | `server.tomcat.threads.max→1000, accept-count→2000` |
 | **MQ 同步发送阻塞** | `convertAndSend()` 等 broker ack，浪费请求线程 | `@EnableAsync` + `@Async("mqExecutor")` 异步发送 |
 | **限流器双次 Redis** | INCR + EXPIRE 两次网络往返 | 合并为 `ratelimit.lua` 一次 EVAL |
+| **限流器 Lua 序列化错误** | `Jackson2JsonRedisSerializer` 带类型信息序列化 Integer，Lua `tonumber()` 无法解析 | `RateLimitInterceptor` 改用 `StringRedisTemplate` + `String.valueOf()` |
 
 #### 改动文件
 
@@ -150,8 +161,9 @@
 | `SeckillMqSender.java` | `send()` 加 `@Async("mqExecutor")` |
 | `lua/ratelimit.lua` | **新建**：限流 INCR+EXPIRE 合并为一次 Redis 往返 |
 | `RedisConfig.java` | 注册 `RateLimitScript` Bean |
-| `RateLimitInterceptor.java` | 改用 Lua 脚本替代两次 Redis 调用 |
-| `SeckillLoadTest.java` | 超时 2s→5s + 失败分类统计（Timeout/Connect/HTTP） |
+| `RateLimitInterceptor.java` | 改用 `StringRedisTemplate` + Lua 脚本 |
+| `SeckillLoadTest.java` | 加 `http.maxConnections` + 可调并发/请求数 |
+| `pom.xml` | 加 `maven-compiler-plugin` 注解处理器（Lombok 支持 Maven 编译） |
 
 ---
 
@@ -172,7 +184,8 @@
 | POST | `/hhw/seckill` | 创建秒杀活动 | ✅ |
 | PUT | `/hhw/seckill/{id}` | 修改秒杀活动 | ✅ |
 | DELETE | `/hhw/seckill/{id}` | 删除秒杀活动 | ✅ |
-| POST | `/hhw/seckill/onseckill/{id}` | 执行秒杀 ⚡ | ✅ |
+| GET | `/hhw/seckill/getToken/{id}` | 获取秒杀令牌 🔑 | ✅ |
+| POST | `/hhw/seckill/onseckill/{id}?token=` | 执行秒杀 ⚡ | ✅ |
 | GET | `/hhw/seckill/seckillResult` | 我的秒杀结果列表 | ✅ |
 | POST | `/hhw/pay/{orderId}` | 支付宝支付（返回 HTML） | ✅ |
 | POST | `/hhw/pay/cancel/{orderId}` | 取消支付 | ✅ |

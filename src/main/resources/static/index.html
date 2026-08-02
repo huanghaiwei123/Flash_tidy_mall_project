@@ -138,7 +138,19 @@ async function loadProducts() {
 
 async function doSeckill(seckillId) {
     try {
-        const resp = await fetch(`${BASE}/seckill/onseckill/${seckillId}`, {
+        // ① 先获取动态 token（防脚本提前知道秒杀 URL）
+        const tokenResp = await fetch(`${BASE}/seckill/getToken/${seckillId}`, {
+            headers: { 'Authorization': 'Bearer ' + TOKEN }
+        });
+        const tokenJson = await tokenResp.json();
+        if (tokenJson.code !== 200) {
+            showResultMsg(tokenJson.message || '获取令牌失败', 'error');
+            return;
+        }
+        const token = tokenJson.data;
+
+        // ② 带 token 发起秒杀
+        const resp = await fetch(`${BASE}/seckill/onseckill/${seckillId}?token=${token}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN }
         });

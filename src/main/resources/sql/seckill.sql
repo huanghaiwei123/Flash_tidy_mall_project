@@ -103,3 +103,8 @@ CREATE TABLE `user_seckill_record` (
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- 开启慢日志（重启失效）
+SET GLOBAL slow_query_log = ON;
+SET GLOBAL long_query_time = 0.1;  -- 100ms 就算慢
+SET GLOBAL log_queries_not_using_indexes = ON;
