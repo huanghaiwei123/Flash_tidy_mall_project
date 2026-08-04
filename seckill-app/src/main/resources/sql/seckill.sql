@@ -72,15 +72,17 @@ CREATE TABLE `seckill_order` (
   `goods_name` varchar(120) NOT NULL COMMENT '商品名称（冗余）',
   `price` decimal(10,2) NOT NULL COMMENT '秒杀价格',
   `state` int(4) NOT NULL DEFAULT '0' COMMENT '订单状态：0-未支付 1-已支付 2-已取消 3-已退款',
+  `bucket_id` int(4) DEFAULT NULL COMMENT '命中的库存桶编号（0~9），用于精确回滚',
   `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `pay_time` timestamp NULL DEFAULT NULL COMMENT '支付时间',
-  trade_no VARCHAR(64) DEFAULT NULL COMMENT '支付宝交易号' ,
-PRIMARY KEY (`order_id`),
+  `trade_no` VARCHAR(64) DEFAULT NULL COMMENT '支付宝交易号',
+  PRIMARY KEY (`order_id`),
   KEY `idx_seckill_id` (`seckill_id`),
   KEY `idx_user_id` (`user_id`),
   KEY `idx_create_time` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='秒杀订单表';
-desc seckill_order;
+ALTER TABLE seckill_order ADD COLUMN bucket_id INT(4) DEFAULT NULL COMMENT '命中的库存桶编号（0~9），用于精确回滚';
+
 -- =============================================
 -- 4. 用户秒杀记录表（代替原来的 success_killed）
 -- =============================================

@@ -48,13 +48,14 @@ public class SeckillMqReceiver {
             return;
         }
 
-        // ② 创建秒杀订单
+        // ② 创建秒杀订单（保存 bucketId 用于后续精确回滚）
         SeckillOrder order = SeckillOrder.builder()
                 .seckillId(seckillId)
                 .userId(Long.valueOf(userId))
                 .goodsName(seckill.getName())
                 .price(seckill.getPrice())
                 .state(ResultCodeConstant.UNPAY)
+                .bucketId(message.getBucketId())
                 .build();
         seckillOrderMapper.insert(order);
         log.info("秒杀订单创建成功 orderId={}", order.getOrderId());

@@ -6,6 +6,7 @@ import com.gdou.Constant.ResultCodeConstant;
 import com.gdou.common.Result;
 import com.gdou.exception.BusinessException;
 import com.gdou.mapper.SeckillOrderMapper;
+import com.gdou.mapper.SeckillMapper;
 import com.gdou.mapper.UserSeckillRecordMapper;
 import com.gdou.pojo.entity.Seckill;
 import com.gdou.pojo.entity.SeckillOrder;
@@ -35,6 +36,8 @@ public class PayServiceImpl implements PayService {
     private AlipayService alipayService;
     @Autowired
     private SeckillService seckillService;
+    @Autowired
+    private SeckillMapper seckillMapper;
 
     /**
      * 支付宝电脑网站支付：生成支付页面HTML（不修改订单状态，等支付宝异步回调）
@@ -78,13 +81,17 @@ public class PayServiceImpl implements PayService {
         recordWrapper.set(UserSeckillRecord::getState, ResultCodeConstant.PAY_CANCEL);
         userSeckillRecordMapper.update(null, recordWrapper);
 
-        // 回补 Redis 库存 + 删除用户防重标记
-        String stockKey = RedisConstant.SECKILL_STOCK + ":{" + order.getSeckillId() + "}";
+        // 回补 DB 库存
+        seckillMapper.incrementById(order.getSeckillId());
+
+        // 回补 Redis 库存 — 用订单记录的 bucketId 精确回滚
+        Integer bucketId = order.getBucketId();
+        String stockKey = RedisConstant.SECKILL_STOCK + ":{" + order.getSeckillId() + "}:" + bucketId;
         String userKey = RedisConstant.USER_SECKILL_RECORD + ":{" + order.getSeckillId() + "}:" + order.getUserId();
         redisTemplate.opsForValue().increment(stockKey);
         redisTemplate.delete(userKey);
 
-        log.info("订单 {} 已取消，库存已回补", orderId);
+        log.info("订单 {} 已取消，DB库存+1，Redis桶{}库存+1", orderId, bucketId);
         return Result.success("取消成功");
     }
 

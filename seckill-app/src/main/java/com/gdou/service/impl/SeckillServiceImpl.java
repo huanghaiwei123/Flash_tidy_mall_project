@@ -136,7 +136,7 @@ public class SeckillServiceImpl extends ServiceImpl<SeckillMapper, Seckill>
         if (seckill == null) {
             throw new BusinessException("秒杀活动不存在", ResultCodeConstant.ERROR);
         }
-        BeanUtils.copyProperties(seckillDto, seckill);
+        BeanUtils.copyProperties(seckillDto, seckill, "seckillId", "createTime", "version");
         seckill.setSeckillId(id);
         seckillMapper.updateById(seckill);
         log.info("修改秒杀活动成功，seckillId={}", id);

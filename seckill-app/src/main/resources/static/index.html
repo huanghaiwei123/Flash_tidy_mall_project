@@ -96,7 +96,7 @@
 </div>
 
 <script>
-const BASE = 'http://your-server-host:8080/hhw'; // TODO: 替换为实际部署地址
+const BASE = 'http://localhost:8080/hhw';
 const TOKEN = localStorage.getItem('token');
 const PHONE = localStorage.getItem('phone');
 
@@ -148,7 +148,7 @@ async function doSeckill(seckillId) {
             return;
         }
         // 弹出验证码对话框
-        const answer = await showCaptchaDialog(json1.data.captcha_image, json1.data.captcha_expression);
+        const answer = await showCaptchaDialog(json1.data.captcha_image);
         if (!answer) return;
         // 第二步：带答案秒杀
         const resp2 = await fetch(`${BASE}/seckill/onseckill/${seckillId}?captchaAnswer=${encodeURIComponent(answer)}`, {
@@ -163,7 +163,7 @@ async function doSeckill(seckillId) {
     }
 }
 
-function showCaptchaDialog(imageBase64, expression) {
+function showCaptchaDialog(imageBase64) {
     return new Promise(resolve => {
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:9999';
@@ -171,7 +171,6 @@ function showCaptchaDialog(imageBase64, expression) {
             <div style="background:#fff;border-radius:12px;padding:24px;text-align:center;min-width:300px;box-shadow:0 4px 20px rgba(0,0,0,0.2)">
                 <h3 style="margin-bottom:12px">验证码</h3>
                 <img src="${imageBase64}" alt="验证码" style="border:1px solid #ddd;border-radius:6px;margin-bottom:12px">
-                <p style="color:#666;margin-bottom:12px;font-size:16px">${expression}</p>
                 <input id="captcha-input" type="text" placeholder="请输入答案" autocomplete="off"
                     style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:16px;text-align:center;box-sizing:border-box;margin-bottom:12px">
                 <div>

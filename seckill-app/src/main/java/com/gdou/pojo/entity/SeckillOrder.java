@@ -3,8 +3,10 @@ package com.gdou.pojo.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,6 +17,8 @@ import java.time.LocalDateTime;
 @Data
 @TableName("seckill_order")
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SeckillOrder implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -49,6 +53,9 @@ public class SeckillOrder implements Serializable {
 
     /** 支付时间 */
     private LocalDateTime payTime;
+
+    /** 命中的库存桶编号（0~9），用于取消/退款时精确回滚 Redis */
+    private Integer bucketId;
 
     /** 支付宝交易号 */
     private String tradeNo;

@@ -1,0 +1,73 @@
+# ================================================================
+# 示例配置文件（给 GitHub 展示用，不包含真实密钥）
+# 使用方法：复制为 application.yml 并填入你的真实配置
+# ================================================================
+
+spring:
+  datasource:
+   url: jdbc:mysql://your-mysql-host:3306/seckill_project?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+   username: your-db-username
+   password: your-db-password
+   driver-class-name: com.mysql.cj.jdbc.Driver
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+  redis:
+    timeout: 10000ms
+    lettuce:
+      pool:
+        max-active: 200
+        max-wait: 3000ms
+        max-idle: 50
+        min-idle: 10
+    cluster:
+      nodes:
+        - your-redis-host:7000
+        - your-redis-host:7001
+        - your-redis-host:7002
+        - your-redis-host:7003
+        - your-redis-host:7004
+        - your-redis-host:7005
+      max-redirects: 3
+
+  rabbitmq:
+    host: your-rabbitmq-host
+    port: 5672
+    username: your-rabbitmq-username
+    password: your-rabbitmq-password
+    listener:
+      simple:
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000ms
+        prefetch: 50
+
+jwt:
+  secret: your-jwt-secret-key-at-least-32-characters-long
+  expiration: 3600000
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+alipay:
+  app-id: your-alipay-app-id
+  merchant-private-key: your-alipay-merchant-private-key
+  alipay-public-key: your-alipay-alipay-public-key
+  gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
+  notify-url: your-alipay-notify-url
+  return-url: your-alipay-return-url
+  sign-type: RSA2
+  charset: UTF-8
+  format: json
+
+server:
+  port: 8080
+  tomcat:
+    threads:
+      max: 1000
+      min-spare: 100
+    accept-count: 2000

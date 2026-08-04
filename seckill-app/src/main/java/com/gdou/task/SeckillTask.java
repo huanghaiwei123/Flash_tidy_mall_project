@@ -36,11 +36,14 @@ public class SeckillTask {
             int integer = seckill.getNumber() / RedisConstant.BUCKET_COUNT;
             int remainder = seckill.getNumber() % RedisConstant.BUCKET_COUNT;
             String key = RedisConstant.SECKILL_STOCK + ":{" + seckill.getSeckillId() + "}";
-            Boolean b=null;
+            boolean anyNew = false;
             for (int i = 0; i < RedisConstant.BUCKET_COUNT; i++) {
                 int addNum = i < remainder ? 1 : 0;   //余数加给前几个
-//                库存分桶
-                b = redisTemplate.opsForValue().setIfAbsent(key + ":" + i, integer + addNum, Duration.ofDays(2L));
+                // 库存分桶
+                Boolean b = redisTemplate.opsForValue().setIfAbsent(key + ":" + i, integer + addNum, Duration.ofDays(2L));
+                if (Boolean.TRUE.equals(b)) {
+                    anyNew = true;
+                }
             }
             // 缓存时间窗口到 Redis（epoch 毫秒），Lua 脚本内部校验
             String startKey = RedisConstant.SECKILL_START + ":{" + seckill.getSeckillId() + "}";
@@ -50,7 +53,7 @@ public class SeckillTask {
             redisTemplate.opsForValue().setIfAbsent(startKey, startEpoch, Duration.ofDays(2L));
             redisTemplate.opsForValue().setIfAbsent(endKey, endEpoch, Duration.ofDays(2L));
             bloomFilter.add(seckill.getSeckillId());
-            if (Boolean.TRUE.equals(b)) {
+            if (anyNew) {
                 log.info("活动开始前一天已上架id为{}的商品,过期时间为一天", seckill.getSeckillId());
             }
         }

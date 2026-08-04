@@ -1,6 +1,6 @@
 # 秒杀项目开发进度
 
-> 最后更新：2026-08-02（压测收官 + 动态 URL）
+> 最后更新：2026-08-04（Bug 修复 + bucket_id 完善 + 配置脱敏）
 
 ## 项目概况
 
@@ -170,6 +170,42 @@
 ## 进行中 🔄
 
 暂无
+
+---
+
+## 2026-08-04：Bug 修复 + 配置脱敏 + bucket_id 完善
+
+### 配置脱敏（GitHub 上线准备） ✅
+- [x] `application.yml`：MySQL/Redis/RabbitMQ 的 IP、密码、JWT 密钥、支付宝密钥/回调 URL 全部替换为占位符
+- [x] `docker-compose.yml`：同上脱敏
+- [x] `index.html` / `login.html`：`localhost:8080` → 占位符
+- [x] `PayController.java`：硬编码 `localhost:8080` → 占位符
+
+### Bug 修复 ✅
+
+| # | 严重度 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 1 | 🔴 | `PayServiceImpl.cancel()` | Redis 库存回补 key 缺桶编号后缀，库存回不到正确桶 | 新增 `bucket_id` 字段 + 精确回滚 |
+| 2 | 🔴 | `RegisterServiceImpl.register()` | LambdaQueryWrapper 复用导致昵称检查变成 AND 条件 | 新建独立 wrapper |
+| 3 | 🟡 | `CaptchaService.java` | 验证码尺寸硬编码，CaptchaProperties 配置无效 | 注入配置 Bean |
+| 4 | 🟡 | `SeckillServiceImpl.updateSeckill()` | BeanUtils.copyProperties 可能覆盖 version | 显式 ignore 字段 |
+| 5 | 🟡 | `SeckillUserMapper.xml` | 引用不存在的 salt 列 | 删除 salt 映射 |
+| 6 | 🟡 | `seckill.sql` | 残留 `desc seckill_order;` 调试语句 | 删除 |
+| 7 | 🟡 | `SeckillOrder` / `UserSeckillRecord` | @Builder 缺 @NoArgsConstructor | 补充注解 |
+| 8 | 🟡 | `SeckillOrderMapper.xml` | 漏了 `trade_no` 列映射 | 补全 |
+| 9 | 🟢 | `GlobalExceptionHandle` | 通用异常不打印堆栈 | `log.error("Unexpected error", e)` |
+| 10 | 🟢 | `SeckillTask` | 日志判断变量 b 在循环中被覆盖 | 改为 anyNew 布尔累积 |
+
+### 架构改进 ✅
+- [x] `seckill_order` 表新增 `bucket_id` 列，订单持久化桶编号
+- [x] `SeckillMqReceiver.onMessage()` 创建订单时写入 bucketId
+- [x] `PayServiceImpl.cancel()` 从订单读取 bucketId 精确回滚 Redis 库存桶
+- [x] MQ 超时取消 → 精确回滚；手动取消 → 精确回滚（之前是随机桶）
+
+### 下一步计划
+1. 分布式事务：MQ 消费端幂等 + 数据一致性（RocketMQ 事务消息 或 Seata）
+2. 优惠券系统：复用 Redis 分桶 + Lua + MQ 架构
+3. 微服务拆分：Nacos + Gateway + OpenFeign
 
 ---
 

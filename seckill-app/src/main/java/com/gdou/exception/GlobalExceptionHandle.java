@@ -45,7 +45,7 @@ public class GlobalExceptionHandle {
      */
     @ExceptionHandler(Exception.class)
     public Result handleException(Exception e) {
-        log.error(e.getMessage());
-        return Result.error(e.getMessage(), ResultCodeConstant.ERROR,null);
+        log.error("Unexpected error", e);
+        return Result.error("服务器内部错误: " + e.getMessage(), ResultCodeConstant.ERROR, null);
     }
 }

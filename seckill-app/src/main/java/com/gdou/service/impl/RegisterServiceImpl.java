@@ -26,8 +26,9 @@ public class RegisterServiceImpl implements RegisterService {
         if (count > 0) {
             throw new BusinessException("手机号已被注册", ResultCodeConstant.ERROR);
         }
-       wrapper.eq(SeckillUser::getNickname, seckillUser.getNickname());
-        Long count1 = seckillUserMapper.selectCount(wrapper);
+        LambdaQueryWrapper<SeckillUser> nicknameWrapper = new LambdaQueryWrapper<>();
+        nicknameWrapper.eq(SeckillUser::getNickname, seckillUser.getNickname());
+        Long count1 = seckillUserMapper.selectCount(nicknameWrapper);
         if (count1 > 0) {
             log.error("该昵称已存在");
             throw new BusinessException("该昵称已存在", ResultCodeConstant.ERROR);
