@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  seckill-app:
+    build: .
+    container_name: seckill-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://your-mysql-host:3306/seckill_project?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+      - SPRING_DATASOURCE_USERNAME=your-db-username
+      - SPRING_DATASOURCE_PASSWORD=your-db-password
+      - SPRING_REDIS_CLUSTER_NODES=your-redis-host:7000,your-redis-host:7001,your-redis-host:7002,your-redis-host:7003,your-redis-host:7004,your-redis-host:7005
+      - SPRING_RABBITMQ_HOST=your-rabbitmq-host
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=your-rabbitmq-username
+      - SPRING_RABBITMQ_PASSWORD=your-rabbitmq-password
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -49,7 +49,7 @@ public class SeckillTask {
             long endEpoch = seckill.getEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
             redisTemplate.opsForValue().setIfAbsent(startKey, startEpoch, Duration.ofDays(2L));
             redisTemplate.opsForValue().setIfAbsent(endKey, endEpoch, Duration.ofDays(2L));
-
+            bloomFilter.add(seckill.getSeckillId());
             if (Boolean.TRUE.equals(b)) {
                 log.info("活动开始前一天已上架id为{}的商品,过期时间为一天", seckill.getSeckillId());
             }
