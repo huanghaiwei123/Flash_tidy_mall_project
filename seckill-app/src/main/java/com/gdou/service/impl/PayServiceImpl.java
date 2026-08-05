@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -62,18 +63,26 @@ public class PayServiceImpl implements PayService {
     @Override
     @Transactional
     public Result cancel(Long orderId) {
-        SeckillOrder order = seckillOrderMapper.selectById(orderId);
-        if (order == null) {
-            throw new BusinessException("订单不存在", ResultCodeConstant.ERROR);
-        }
-        if (!order.getState().equals(ResultCodeConstant.UNPAY)) {
+        // CAS 原子更新：只有 UNPAY 才改为 PAY_CANCEL
+        LambdaUpdateWrapper<SeckillOrder> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(SeckillOrder::getOrderId, orderId)
+               .eq(SeckillOrder::getState, ResultCodeConstant.UNPAY);  // CAS 条件
+        wrapper.set(SeckillOrder::getState, ResultCodeConstant.PAY_CANCEL);
+        int rows = seckillOrderMapper.update(null, wrapper);
+
+        if (rows == 0) {
+            SeckillOrder order = seckillOrderMapper.selectById(orderId);
+            if (order == null) {
+                throw new BusinessException("订单不存在", ResultCodeConstant.ERROR);
+            }
+            if (order.getState().equals(ResultCodeConstant.PAY_SUCCESS)) {
+                throw new BusinessException("订单已支付，无法取消", ResultCodeConstant.ERROR);
+            }
             throw new BusinessException("订单状态异常，无法取消", ResultCodeConstant.ERROR);
         }
-        // 更新订单状态 → 已取消
-        LambdaUpdateWrapper<SeckillOrder> wrapper = new LambdaUpdateWrapper<>();
-        wrapper.eq(SeckillOrder::getOrderId, orderId);
-        wrapper.set(SeckillOrder::getState, ResultCodeConstant.PAY_CANCEL);
-        seckillOrderMapper.update(null, wrapper);
+
+        // CAS 成功 → 取订单信息（需要 bucketId 精确回滚）
+        SeckillOrder order = seckillOrderMapper.selectById(orderId);
 
         // 更新秒杀记录状态 → 已取消
         LambdaUpdateWrapper<UserSeckillRecord> recordWrapper = new LambdaUpdateWrapper<>();
@@ -173,20 +182,31 @@ public class PayServiceImpl implements PayService {
             return "failure";
         }
 
-        // 更新订单
+        // CAS 原子更新：只有 UNPAY 才改为 PAY_SUCCESS
         LambdaUpdateWrapper<SeckillOrder> wrapper = new LambdaUpdateWrapper<>();
-        wrapper.eq(SeckillOrder::getOrderId, orderId);
+        wrapper.eq(SeckillOrder::getOrderId, orderId)
+               .eq(SeckillOrder::getState, ResultCodeConstant.UNPAY);  // CAS 条件
         wrapper.set(SeckillOrder::getState, ResultCodeConstant.PAY_SUCCESS);
         wrapper.set(SeckillOrder::getTradeNo, tradeNo);
         wrapper.set(SeckillOrder::getPayTime, LocalDateTime.now());
-        seckillOrderMapper.update(null, wrapper);
-
+        int row = seckillOrderMapper.update(null, wrapper);
+        if (row == 0) {
+            // CAS 失败：订单已被超时取消抢占了，返回 success 停止支付宝重试
+            log.info("订单{}状态已变更，跳过支付回调", orderId);
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return "success";
+        }
         // 更新秒杀记录
         LambdaUpdateWrapper<UserSeckillRecord> recordWrapper = new LambdaUpdateWrapper<>();
         recordWrapper.eq(UserSeckillRecord::getOrderId, orderId);
         recordWrapper.set(UserSeckillRecord::getState, ResultCodeConstant.PAY_SUCCESS);
-        userSeckillRecordMapper.update(null, recordWrapper);
-
+        int row1 = userSeckillRecordMapper.update(null, recordWrapper);
+        if (row1 == 0) {
+            // 说明 CAS 失败，订单已被超时取消的延迟消息抢占了
+            log.info("订单{}状态已变更，跳过支付回调", orderId);
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return "success";  // 停止支付宝重试
+        }
         log.info("支付宝回调处理成功，订单 {} 已支付，交易号: {}", orderId, tradeNo);
         return "success";
     }
