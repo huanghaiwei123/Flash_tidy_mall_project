@@ -50,6 +50,11 @@ public class OrderItem implements Serializable {
     private Long skuId;
 
     /**
+     * 商家ID（冗余，方便商家查询属于自己的订单明细）
+     */
+    private Long merchantId;
+
+    /**
      * SKU 名称快照
      */
     private String skuName;
@@ -83,6 +88,11 @@ public class OrderItem implements Serializable {
      * 创建时间
      */
     private Date createTime;
+
+    /**
+     * 明细状态：PENDING=待处理 SHIPPED=已发货 RECEIVED=已收货
+     */
+    private String itemStatus;
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
@@ -253,6 +263,20 @@ public class OrderItem implements Serializable {
      */
     public void setCreateTime(Date createTime) {
         this.createTime = createTime;
+    }
+
+    /**
+     * 明细状态：PENDING=待处理 SHIPPED=已发货 RECEIVED=已收货
+     */
+    public String getItemStatus() {
+        return itemStatus;
+    }
+
+    /**
+     * 明细状态：PENDING=待处理 SHIPPED=已发货 RECEIVED=已收货
+     */
+    public void setItemStatus(String itemStatus) {
+        this.itemStatus = itemStatus;
     }
 
     @Override

@@ -41,9 +41,9 @@ public interface CouponService extends IService<Coupon> {
     Result merchantQueryCoupons(Long merchantId);
 
     /**
-     * 用户查询可领取的优惠券（只展示有商家参与的）
+     * 用户查询可领取的优惠券（只展示有商家参与的，含是否已领取标记）
      */
-    Result userQueryAvailableCoupons();
+    Result userQueryAvailableCoupons(Long userId);
 
     /**
      * 用户领取优惠券

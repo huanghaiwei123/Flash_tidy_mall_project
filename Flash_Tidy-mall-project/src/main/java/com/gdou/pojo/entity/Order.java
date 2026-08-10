@@ -4,7 +4,10 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -14,8 +17,11 @@ import java.util.Date;
  * 统一订单表
  * @TableName order
  */
-@TableName(value ="order")
+@TableName(value ="`order`")
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Order implements Serializable {
     /**
      * 订单ID
@@ -33,10 +39,6 @@ public class Order implements Serializable {
      */
     private Long userId;
 
-    /**
-     * 商家ID
-     */
-    private Long merchantId;
 
     /**
      * 订单类型：NORMAL=普通 SECKILL=秒杀

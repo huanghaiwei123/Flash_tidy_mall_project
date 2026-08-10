@@ -23,6 +23,12 @@ public class ShoppingCarDto {
     private Long skuId;
 
     /**
+     * 商家id
+     */
+    @NotNull(message = "merchantId 不能为空")
+    private Long merchantId;
+
+    /**
      * 数量（最低 1）
      */
     @Min(value = 1, message = "数量至少为 1")

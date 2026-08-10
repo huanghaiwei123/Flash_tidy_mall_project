@@ -26,8 +26,21 @@ function isLogin() { return !!localStorage.getItem('token'); }
 
 function logout() {
   localStorage.removeItem('token');
+  localStorage.removeItem('userId');
   localStorage.removeItem('userInfo');
   window.location.href = 'http://localhost:8080/index.html';
+}
+
+function getUserId() {
+  var uid = localStorage.getItem('userId');
+  if (!uid) {
+    // 兜底：从 userInfo 中读取
+    var info = localStorage.getItem('userInfo');
+    if (info) {
+      try { uid = JSON.parse(info).userId; } catch(e) {}
+    }
+  }
+  return uid;
 }
 
 // ====== 渲染导航栏（每个页面自动调用） ======
@@ -47,6 +60,7 @@ function renderNavbar() {
     '    </div>' +
     '    <div class="fm-header-nav">' +
     '      <a href="http://localhost:8080/index.html">🏠 首页</a>' +
+      '      <a href="http://localhost:8080/seckill.html" style="color:#ff4d2e;font-weight:600;">⚡ 秒杀</a>' +
     (logged
       ? '      <a href="http://localhost:8080/order-list.html">我的订单</a>' +
         '      <a href="http://localhost:8080/user-center.html">个人中心</a>' +

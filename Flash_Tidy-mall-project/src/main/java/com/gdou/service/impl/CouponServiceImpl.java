@@ -148,13 +148,13 @@ public class CouponServiceImpl extends ServiceImpl<CouponMapper, Coupon>
     // ===================== 用户 =====================
 
     @Override
-    public Result userQueryAvailableCoupons() {
+    public Result userQueryAvailableCoupons(Long userId) {
         // 查所有有效且在有效期内的优惠券
         LambdaQueryWrapper<Coupon> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Coupon::getStatus, 1)
                .le(Coupon::getStartTime, new Date())
                .ge(Coupon::getEndTime, new Date())
-               .apply("issued_count < total_count")  // 还没领完
+               .apply("issued_count < total_count")
                .orderByDesc(Coupon::getCreateTime);
         List<Coupon> list = list(wrapper);
 
@@ -166,7 +166,36 @@ public class CouponServiceImpl extends ServiceImpl<CouponMapper, Coupon>
             return couponMerchantMapper.selectCount(cmWrapper) > 0;
         }).collect(Collectors.toList());
 
-        return Result.success(available);
+        // 查用户已领取的优惠券，用于前端判断按钮是否置灰
+        Set<Long> collectedIds = Collections.emptySet();
+        if (userId != null && !available.isEmpty()) {
+            List<Long> couponIds = available.stream().map(Coupon::getId).collect(Collectors.toList());
+            LambdaQueryWrapper<UserCoupon> ucWrapper = new LambdaQueryWrapper<>();
+            ucWrapper.eq(UserCoupon::getUserId, userId)
+                     .in(UserCoupon::getCouponId, couponIds);
+            List<UserCoupon> userCoupons = userCouponMapper.selectList(ucWrapper);
+            collectedIds = userCoupons.stream().map(UserCoupon::getCouponId).collect(Collectors.toSet());
+        }
+
+        // 组装返回，带上 alreadyCollected 标记
+        final Set<Long> finalCollectedIds = collectedIds;
+        List<Map<String, Object>> result = available.stream().map(coupon -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", coupon.getId());
+            item.put("name", coupon.getName());
+            item.put("type", coupon.getType());
+            item.put("discountValue", coupon.getDiscountValue());
+            item.put("minAmount", coupon.getMinAmount());
+            item.put("totalCount", coupon.getTotalCount());
+            item.put("issuedCount", coupon.getIssuedCount());
+            item.put("perUserLimit", coupon.getPerUserLimit());
+            item.put("startTime", coupon.getStartTime());
+            item.put("endTime", coupon.getEndTime());
+            item.put("alreadyCollected", finalCollectedIds.contains(coupon.getId()));
+            return item;
+        }).collect(Collectors.toList());
+
+        return Result.success(result);
     }
 
     @Override

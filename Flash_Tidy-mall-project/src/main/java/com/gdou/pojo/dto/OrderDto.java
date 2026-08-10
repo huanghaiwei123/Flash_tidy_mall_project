@@ -3,16 +3,13 @@ package com.gdou.pojo.dto;
 import lombok.Data;
 
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 
 @Data
 public class OrderDto {
-    @NotNull(message = "购物车不能为空")
-    /**
-     * 购物车
-     */
-    private List<ShoppingCarDto> car;
+
     /**
      * 收货地址快照（下单时冗余存储，不受地址变更影响）
      */
@@ -20,7 +17,18 @@ public class OrderDto {
     private Object addressSnapshot;
 
     /**
+     *
+     */
+    @NotEmpty(message = "购物车不能为空")
+    private List<ShoppingCarDto> car;
+
+    /**
      * 优惠卷id
      */
     private Long couponId;
+
+    /**
+     * 秒杀验证码答案（仅秒杀下单时必填，普通下单传 null）
+     */
+    private String captcha;
 }

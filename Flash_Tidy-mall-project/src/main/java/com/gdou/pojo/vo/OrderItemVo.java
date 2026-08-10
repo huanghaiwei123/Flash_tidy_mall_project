@@ -1,45 +1,34 @@
 package com.gdou.pojo.vo;
 
+import lombok.Data;
+
 import java.math.BigDecimal;
 import java.util.Date;
 
+@Data
 public class OrderItemVo {
-    /**
-     * 订单编号（冗余，方便查询）
-     */
+    /** 订单编号 */
     private String orderNo;
-    /**
-     * SKU 名称快照
-     */
+    /** 商家ID */
+    private Long merchantId;
+    /** 店铺名称 */
+    private String merchantName;
+    /** SPU ID */
+    private Long spuId;
+    /** SKU 名称快照 */
     private String skuName;
-
-    /**
-     * SKU 规格快照
-     */
+    /** SKU 规格快照 */
     private String skuSpec;
-
-    /**
-     * SKU 图片快照
-     */
+    /** SKU 图片快照 */
     private String skuImage;
-
-    /**
-     * SKU 下单时单价快照
-     */
+    /** SKU 下单时单价快照 */
     private BigDecimal skuPrice;
-
-    /**
-     * 购买数量
-     */
+    /** 购买数量 */
     private Integer quantity;
-
-    /**
-     * 明细总价（= sku_price × quantity）
-     */
+    /** 明细总价（= sku_price × quantity） */
     private BigDecimal totalPrice;
-
-    /**
-     * 创建时间
-     */
+    /** 创建时间 */
     private Date createTime;
+    /** 明细状态：PENDING=待处理 SHIPPED=已发货 RECEIVED=已收货 */
+    private String itemStatus;
 }

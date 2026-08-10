@@ -25,7 +25,8 @@ public class UserCouponController {
      */
     @GetMapping("/available")
     public Result available() {
-        return couponService.userQueryAvailableCoupons();
+        Long userId = UserHolder.get();
+        return couponService.userQueryAvailableCoupons(userId);
     }
 
     /**

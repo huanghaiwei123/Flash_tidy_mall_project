@@ -21,6 +21,7 @@ public class SpuDetailVo {
     private String mainImage;
     private Object images;
     private String detail;
+    private Long merchantId;
     private Integer sales;
     private Date createTime;
 

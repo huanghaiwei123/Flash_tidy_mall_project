@@ -14,8 +14,8 @@ spring:
     username: root
     password: 123456
   redis:
-    cluster:
-      nodes: ${REDIS_CLUSTER_NODES:192.168.147.131:7000,192.168.147.131:7001,192.168.147.131:7002,192.168.147.131:7003,192.168.147.131:7004,192.168.147.131:7005}
+    host: 192.168.147.131
+    port: 6379
     lettuce:
       pool:
         max-active: 200
@@ -32,15 +32,18 @@ spring:
     listener:
       simple:
         prefetch: 50
+        concurrency: 3
         retry:
           enabled: true
           max-attempts: 3
           initial-interval: 1000ms
+  elasticsearch:
+    uris: http://192.168.147.131:9200
 
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       id-type: auto
@@ -53,16 +56,22 @@ jwt:
   secret: your-jwt-secret-key-32-long-2026
   expiration: 7200000
 
+# 前端地址
+app:
+  frontend-url: http://localhost:8080
+
 # 支付宝沙箱
 alipay:
-  app-id: ${ALIPAY_APP_ID:your-app-id}
-  private-key: ${ALIPAY_PRIVATE_KEY:your-private-key}
-  alipay-public-key: ${ALIPAY_PUBLIC_KEY:your-alipay-public-key}
+  app-id: 9021000166629203
+  private-key: MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCOIGOhbbIosOTBmzjH/THI9OPgSWVnSm5imADBtHxaUtXonsDOldw+Ck5/ikj346SV3SJbGMUaDgwsd0Oh5n7KZ79SdPIZzK7J5U5dHM82qKyAQRENr1KE8reUGGF0XmWsVSqLtcRetTVaZYVt0PquO4MevW6Tw3nqJg4iw4aXGpIHEfDfmGFq1VMdf0XYUrMXAx34Myh9lhr/ackMrbqBS28Xa6YC6sWxAwk4xcu+06BDRnSyxb1uqtQCMfwzsYzQAW/foxJk+UT6xglclewSa7iZiC1vdR7ZCSPFvyIqjbXG/q4vPxQ4LT6WPfrA5wD3+37neSFnhrexHOZiKbE9AgMBAAECggEAZ5VLh5d/RRDHaCNM2tS5uBBjFE/py8H/eXP2+TYle17r78HkG6w0/DJey61pSOFsTp0AMQx4emjKjo3NiO2IctPyKJJ68DqxGQw6dLpOezOrpT3GxAaHScXr7c9nF3zE9TiM7Y3oNG41GFDtUgAA84MEKR8+vAq3i+N4YfXG3dC0phodUPiqozS7H04/uh1YTkaO0gavzn4ca541VUeLu9GP3g10L6t0FI93zXHec262CWTlxS4I6DLrllDp9AGVxb0u8Ye3C/1mIwdis5F1bdRzpeGUOQDNV6sjTNXZTrdUXshM1XCFjwHsysp/KZv0XzNRZ5cdlHDEtetpnN5vMQKBgQDPOHDiCy83L3riOU05Uu6Ts65a6TsWqtkM0HB6Jytu3MfRoCIoVv9L/JjrWo7AK10VjGL+bp2/x0Jd2EnFvjWMU055+LupRT5Hi2H6/+sGGPdQrfuHEsaUc491O2oEJZkylm1yAQozKwTLM1InfX+/T7H4cfXw2/QTrxzB6fqpqwKBgQCvlT6HUgJ/NzgP7HwleUs9nmElzVu//DZRmVw4sFCS2Ba6u16TGrIbT1VRs7boC4kDoNrvD/mxg1PcLx0vuOPn7AO88jWYOfgUOOKp/czflumEkjqiqSX2mF5J4rffwhsQcDGkTJP3HUhfxCDVMTTi4Zg5Phcsy7n0ALaspZc4twKBgQC2h4Dnm/J7KdeUbeUYGXUNpbhvXAIwdU27e9+XuekIPnHEtMlhv0AiLt6EccBMheX4lTCd7dIGm/5Zq6tQA7wnXzpBNlgXQmcZni0waz0aoeM3rglhcah6G1DCcxNvk67eYKMHSOMzLzGJzCsRnfppCko6DigVgan9rMIoDXI/AQKBgGbWwg3eEcpTHEnvV/NW7KPFjN7oPdHftizq5yHo2vh3CjEKp2T/oMvwFmfJG9sjTnfKkhCtSbEX21k+WxjlcM8Y5EOZlZx4b33gp5mrJoDa0iEsyJ0W9z5MlgUufkXXWaSyIdE6bPuysf4tUJGtxW0RdugoHsjE9kAc3uGWB1FXAoGBAMDwGV+Lum8jtKgmL+o61zqHUmF3eD8X6RsRP2eGZfxuj1RuBK7JG0DN83Hm5/LVTErIE1Fedtsz9BoikTg+RYFimC37Dlkda1J0+T+b78xcSo8GNSvGGpngthAy71F+u34t7d6U/cfa2Oz+ea1E4vHnHlNuWx93JpXBkvLndLsL
+  alipay-public-key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs803aIz55UBpBjboZDK3tIAWPZflP33o1pUZRo4TG0bMFFFR68by8BOEB06P8uAWtKLpvJGi5YXb0f1X2QwmupQbzyVsjqemTKPHzdPv6CSlNCUvRS9cpPTlVbG6B0kFPKA+j5O7sYYEYjNqnsMXCgrMzxGO0d9kbKXdDKnFw32ilCUFz3qfK9WGaZDks3fHJtBJC9YwoLgLoiPbuhN9HExHWzT2F0emGWPwsmz6R006GtsMYeU4pwELfVp4p478Ni43NG9lrVdDaDEYaJYYbOvxJqVLySnlc2iHaun5oY+4SQo8vMrTpc1NiWVziUrZNch5G8pXcrXMg4qIGpN0LQIDAQAB
   gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
-  notify-url: ${ALIPAY_NOTIFY_URL:http://localhost:8080/hhw/pay/notify}
+  notify-url: ${ALIPAY_NOTIFY_URL:http://y8ec6a44.natappfree.cc/hhw/pay/notify}
   return-url: ${ALIPAY_RETURN_URL:http://localhost:8080/hhw/pay/return}
+  signType: RSA2
+  charset: utf-8
 
 # 日志
 logging:
   level:
-    com.gdou: debug
+    com.gdou: info

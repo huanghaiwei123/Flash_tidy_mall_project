@@ -4,8 +4,10 @@ import com.alipay.api.AlipayApiException;
 import com.alipay.api.AlipayClient;
 import com.alipay.api.internal.util.AlipaySignature;
 import com.alipay.api.request.AlipayTradePagePayRequest;
+import com.alipay.api.request.AlipayTradeQueryRequest;
 import com.alipay.api.request.AlipayTradeRefundRequest;
 import com.alipay.api.response.AlipayTradePagePayResponse;
+import com.alipay.api.response.AlipayTradeQueryResponse;
 import com.alipay.api.response.AlipayTradeRefundResponse;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -93,13 +95,17 @@ public class PayServiceImpl implements PayService {
 
     @Override
     public String handleNotify(Map<String, String> params) {
-        log.info("收到支付宝异步通知: {}", params);
+        log.info("收到支付宝异步通知: out_trade_no={}, trade_status={}",
+                params.get("out_trade_no"), params.get("trade_status"));
 
         try {
             // 1. RSA2 验签
+            String pubKey = alipayProperties.getAlipayPublicKey();
+            log.info("当前支付宝公钥长度={}, 前30位={}", pubKey != null ? pubKey.length() : 0,
+                    pubKey != null ? pubKey.substring(0, Math.min(30, pubKey.length())) : "null");
             boolean signVerified = AlipaySignature.rsaCheckV1(
                     params,
-                    alipayProperties.getAlipayPublicKey(),
+                    pubKey,
                     "UTF-8",
                     "RSA2"
             );
@@ -174,18 +180,7 @@ public class PayServiceImpl implements PayService {
             throw new BusinessException("订单无支付宝交易号，无法退款");
         }
 
-        // 2. 阶段一：先更新状态为退款中（乐观锁）
-        LambdaUpdateWrapper<Order> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.eq(Order::getOrderNo, orderNo);
-        updateWrapper.eq(Order::getStatus, ResultMsgConstant.STATUS_PAID);
-        updateWrapper.set(Order::getStatus, ResultMsgConstant.STATUS_REFUNDING);
-        updateWrapper.set(Order::getUpdateTime, new Date());
-        int rows = orderMapper.update(updateWrapper);
-        if (rows == 0) {
-            throw new BusinessException("订单状态已变更，退款失败");
-        }
-
-        // 3. 调用支付宝退款 API
+        // 2. 先调支付宝退款 API（成功后再改本地状态，避免 REFUNDING 卡住）
         AlipayTradeRefundRequest request = new AlipayTradeRefundRequest();
         String refundNo = orderNo + "_REFUND_" + System.currentTimeMillis();
         String bizContent = "{" +
@@ -197,22 +192,57 @@ public class PayServiceImpl implements PayService {
 
         try {
             AlipayTradeRefundResponse response = alipayClient.execute(request);
-            if (response.isSuccess()) {
-                // 4. 阶段二：支付宝退款成功，更新为已退款
-                LambdaUpdateWrapper<Order> successWrapper = new LambdaUpdateWrapper<>();
-                successWrapper.eq(Order::getOrderNo, orderNo);
-                successWrapper.set(Order::getStatus, ResultMsgConstant.STATUS_REFUNDED);
-                successWrapper.set(Order::getUpdateTime, new Date());
-                orderMapper.update(successWrapper);
-                log.info("订单{}退款成功", orderNo);
-                return Result.success("退款成功");
-            } else {
+            if (!response.isSuccess()) {
                 log.error("支付宝退款失败: code={}, msg={}", response.getCode(), response.getMsg());
                 throw new BusinessException("退款失败: " + response.getMsg());
             }
         } catch (AlipayApiException e) {
             log.error("退款API调用异常", e);
             throw new BusinessException("退款系统异常，请稍后重试");
+        }
+
+        // 3. 支付宝退款成功，乐观锁更新状态 + 恢复库存
+        LambdaUpdateWrapper<Order> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(Order::getOrderNo, orderNo);
+        updateWrapper.eq(Order::getStatus, ResultMsgConstant.STATUS_PAID);
+        updateWrapper.set(Order::getStatus, ResultMsgConstant.STATUS_REFUNDED);
+        updateWrapper.set(Order::getUpdateTime, new Date());
+        int rows = orderMapper.update(updateWrapper);
+        if (rows == 0) {
+            // 极端情况：支付宝已退款但本地状态已变更，需人工核查
+            log.error("订单{}支付宝已退款但本地状态更新失败（状态非PAID），需人工处理", orderNo);
+            throw new BusinessException("退款状态异常，请联系客服处理");
+        }
+
+        orderService.restoreStock(orderNo);
+        log.info("订单{}退款成功，库存已恢复", orderNo);
+        return Result.success("退款成功");
+    }
+
+    @Override
+    public void queryPayResult(String orderNo) {
+        // 只查待支付状态的订单
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Order::getOrderNo, orderNo);
+        wrapper.eq(Order::getStatus, ResultMsgConstant.STATUS_PENDING_PAY);
+        Order order = orderMapper.selectOne(wrapper);
+        if (order == null) {
+            log.info("订单{}无需查询（不存在或非待支付）", orderNo);
+            return;
+        }
+        try {
+            AlipayTradeQueryRequest request = new AlipayTradeQueryRequest();
+            request.setBizContent("{\"out_trade_no\":\"" + orderNo + "\"}");
+            AlipayTradeQueryResponse response = alipayClient.execute(request);
+            if (response.isSuccess() && "TRADE_SUCCESS".equals(response.getTradeStatus())) {
+                log.info("查询到订单{}已支付，支付宝交易号: {}", orderNo, response.getTradeNo());
+                orderService.paySuccess(orderNo, response.getTradeNo());
+            } else {
+                log.info("查询订单{}结果为: code={}, status={}", orderNo,
+                        response.getCode(), response.getTradeStatus());
+            }
+        } catch (Exception e) {
+            log.error("查询支付宝支付结果异常: {}", e.getMessage());
         }
     }
 }

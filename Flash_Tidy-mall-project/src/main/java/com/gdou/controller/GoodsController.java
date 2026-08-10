@@ -2,6 +2,7 @@ package com.gdou.controller;
 
 import com.gdou.common.Result;
 import com.gdou.service.CategoryService;
+import com.gdou.service.MerchantService;
 import com.gdou.service.SkuService;
 import com.gdou.service.SpuService;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,9 @@ public class GoodsController {
 
     @Autowired
     private CategoryService categoryService;
+
+    @Autowired
+    private MerchantService merchantService;
 
     /**
      * 商品列表（支持分类筛选、关键词搜索、分页）
@@ -65,5 +69,16 @@ public class GoodsController {
     @GetMapping("/categories")
     public Result categories() {
         return categoryService.userQueryTree();
+    }
+
+    /**
+     * 店铺主页（商家信息 + 商品列表）
+     */
+    @GetMapping("/shop/{merchantId}")
+    public Result shop(@PathVariable Long merchantId,
+                       @RequestParam(defaultValue = "1") Integer page,
+                       @RequestParam(defaultValue = "20") Integer size) {
+        log.info("用户浏览店铺：merchantId={}, page={}", merchantId, page);
+        return merchantService.shopDetail(merchantId, page, size);
     }
 }

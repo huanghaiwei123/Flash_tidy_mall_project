@@ -6,6 +6,7 @@ import com.gdou.service.PayService;
 import com.gdou.util.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -25,6 +26,9 @@ public class PayController {
 
     @Autowired
     private OrderService orderService;
+
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
 
     /**
      * 发起支付 — 返回支付宝页面支付表单 HTML
@@ -51,18 +55,29 @@ public class PayController {
             }
             params.put(entry.getKey(), valueStr);
         }
-        log.info("支付宝异步通知参数: {}", params);
+        log.info("支付宝异步通知: out_trade_no={}, trade_status={}, sign={}",
+                params.get("out_trade_no"), params.get("trade_status"),
+                params.get("sign") != null ? params.get("sign").substring(0, 20) + "..." : "null");
         return payService.handleNotify(params);
     }
 
     /**
-     * 取消订单
+     * 支付宝同步回调 — 支付成功后 302 跳转回本站
+     * 主动查询支付结果作为异步通知的备用方案
      */
-    @PostMapping("/cancel/{orderNo}")
-    public Result cancel(@PathVariable String orderNo) {
-        Long userId = UserHolder.get();
-        log.info("用户{}取消订单{}", userId, orderNo);
-        return orderService.orderCancel(userId, orderNo);
+    @GetMapping("/return")
+    public void payReturn(HttpServletRequest request, javax.servlet.http.HttpServletResponse response) {
+        String outTradeNo = request.getParameter("out_trade_no");
+        log.info("支付宝同步回调到达, out_trade_no={}", outTradeNo);
+        // 主动查询支付宝确认支付状态
+        if (outTradeNo != null && !outTradeNo.isEmpty()) {
+            payService.queryPayResult(outTradeNo);
+        }
+        try {
+            response.sendRedirect(frontendUrl + "/order-list.html");
+        } catch (java.io.IOException e) {
+            log.error("支付同步回调重定向失败", e);
+        }
     }
 
     /**

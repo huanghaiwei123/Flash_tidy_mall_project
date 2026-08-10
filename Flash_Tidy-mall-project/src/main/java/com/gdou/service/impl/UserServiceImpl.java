@@ -7,6 +7,7 @@ import com.gdou.common.Result;
 import com.gdou.mapper.RoleMapper;
 import com.gdou.mapper.UserRoleMapper;
 import com.gdou.pojo.dto.UserDto;
+import com.gdou.pojo.dto.UserProfileDto;
 import com.gdou.pojo.entity.Role;
 import com.gdou.pojo.entity.User;
 import com.gdou.pojo.entity.UserRole;
@@ -39,24 +40,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     private RoleMapper roleMapper;
     @Override
     @Transactional
-    public Result changePerDetails(Long userId,UserDto userDto) {
+    public Result changePerDetails(Long userId, UserProfileDto userDto) {
        User user = new User();
        BeanUtils.copyProperties(userDto, user);
 //       修改密码对密码进行加密
        if(userDto.getPassword()!=null && !userDto.getPassword().isEmpty()){
            user.setPassword(PasswordEncrypt.encrypt(userDto.getPassword()));
        }
-       if(userDto.getNickname()!=null && !userDto.getNickname().isEmpty()){
-
-       }
-       if(userDto.getNickname()!=null && !userDto.getNickname().isEmpty()){
-        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(User::getNickname,userDto.getNickname());
-        Long count = userMapper.selectCount(queryWrapper);
-        if(count>0) {
-            log.info("{}这个昵称已存在", userDto.getNickname());
-            return Result.Fail("该昵称已存在，请重试：{}",userDto.getNickname());
-        }
+       if (userDto.getNickname() != null && !userDto.getNickname().isEmpty()) {
+            LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(User::getNickname, userDto.getNickname());
+            Long count = userMapper.selectCount(queryWrapper);
+            if (count > 0) {
+                log.info("{}这个昵称已存在", userDto.getNickname());
+                return Result.Fail("该昵称已存在，请重试：{}", userDto.getNickname());
+            }
        }
        LambdaUpdateWrapper<User> wrapper = new LambdaUpdateWrapper<>();
        wrapper.eq(User::getId, userId);

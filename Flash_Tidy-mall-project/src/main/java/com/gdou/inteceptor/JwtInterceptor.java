@@ -19,10 +19,24 @@ public class JwtInterceptor implements HandlerInterceptor {
             return true;
         }
         String token = request.getHeader("Authorization");
-        if(token.startsWith("Bearer ")){
+        if (token == null) {
+            log.warn("JWT 缺失，拦截请求: {}", request.getRequestURI());
+            response.setStatus(401);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"code\":401,\"msg\":\"请先登录\"}");
+            return false;
+        }
+        if (token.startsWith("Bearer ")) {
             token = token.substring(7);
         }
-        if(token==null||!jwtUtil.verifyToken(token)){
+////        压测通道
+//        if(token.startsWith("X-userId ")){
+//            String uid = token.substring("X-userId ".length());
+//            UserHolder.set(Long.valueOf(uid));
+//            return true;
+//        }
+
+        if (!jwtUtil.verifyToken(token)) {
             log.warn("JWT 校验失败或已过期，拦截请求: {}", request.getRequestURI());
             response.setStatus(401);
             response.setContentType("application/json;charset=UTF-8");

@@ -219,6 +219,7 @@ async function loadAvailableCoupons() {
   if (!coupons.length) { list.innerHTML = '<div class="loading">暂无可领取优惠券</div>'; return; }
   var html = '';
   coupons.forEach(function(c) {
+    var collected = c.alreadyCollected === true;
     html +=
       '<div class="coupon-card">' +
       '  <div class="coupon-amount">¥' + (c.discountValue || 0) + '</div>' +
@@ -226,7 +227,9 @@ async function loadAvailableCoupons() {
       '    <div><strong>' + esc(c.name || c.couponName || '优惠券') + '</strong></div>' +
       '    <div style="color:#999;font-size:13px;">' + couponTypeLabel(c) + ' · 有效期至 ' + formatDate(c.endTime) + '</div>' +
       '  </div>' +
-      '  <button class="btn btn-sm btn-primary" onclick="collectCoupon(' + c.id + ')">立即领取</button>' +
+      '  <button class="btn btn-sm ' + (collected ? 'btn-default' : 'btn-primary') + '" ' +
+            (collected ? 'disabled' : 'onclick="collectCoupon(' + c.id + ')"') + '>' +
+            (collected ? '已领取' : '立即领取') + '</button>' +
       '</div>';
   });
   list.innerHTML = html;

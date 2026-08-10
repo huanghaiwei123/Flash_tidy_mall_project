@@ -3,6 +3,7 @@ package com.gdou.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gdou.common.Result;
+import com.gdou.constant.ResultMsgConstant;
 import com.gdou.exception.BusinessException;
 import com.gdou.mapper.SkuMapper;
 import com.gdou.mapper.SpuMapper;
@@ -13,11 +14,11 @@ import com.gdou.service.SkuService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +36,9 @@ public class SkuServiceImpl extends ServiceImpl<SkuMapper, Sku>
 
     @Autowired
     private SpuMapper spuMapper;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     /**
      * 校验 SPU 是否属于当前商家，若不属则抛异常
@@ -218,5 +222,73 @@ public class SkuServiceImpl extends ServiceImpl<SkuMapper, Sku>
                .orderByAsc(Sku::getPrice);
         List<Sku> list = skuMapper.selectList(wrapper);
         return Result.success(list);
+    }
+
+    @Override
+    public Result queryMySeckillSkus(Long merchantId) {
+        // 1. 查该商家所有 SPU
+        LambdaQueryWrapper<Spu> spuWrapper = new LambdaQueryWrapper<>();
+        spuWrapper.eq(Spu::getMerchantId, merchantId);
+        List<Spu> spuList = spuMapper.selectList(spuWrapper);
+
+        if (spuList.isEmpty()) {
+            return Result.success(Collections.emptyList());
+        }
+
+        List<Long> spuIds = spuList.stream().map(Spu::getId).collect(Collectors.toList());
+        Map<Long, Spu> spuMap = spuList.stream().collect(Collectors.toMap(Spu::getId, s -> s));
+
+        // 2. 查这些 SPU 下所有参与秒杀的 SKU
+        LambdaQueryWrapper<Sku> skuWrapper = new LambdaQueryWrapper<>();
+        skuWrapper.in(Sku::getSpuId, spuIds)
+                  .eq(Sku::getIsSeckill, 1)
+                  .orderByAsc(Sku::getSeckillStartTime);
+        List<Sku> skuList = skuMapper.selectList(skuWrapper);
+
+        // 3. 组装结果，附加 Redis 库存和 SPU 名称
+        Date now = new Date();
+        String stockPrefix = ResultMsgConstant.REDIS_SECKILL_STOCK_PREFIX;
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Sku sku : skuList) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("skuId", sku.getId());
+            item.put("spuId", sku.getSpuId());
+            item.put("skuName", sku.getName());
+            item.put("skuPrice", sku.getPrice());
+            item.put("seckillPrice", sku.getSeckillPrice());
+            item.put("promotionStock", sku.getPromotionStock());
+            item.put("seckillStartTime", sku.getSeckillStartTime());
+            item.put("seckillEndTime", sku.getSeckillEndTime());
+            item.put("status", sku.getStatus());
+
+            // SPU 名称
+            Spu spu = spuMap.get(sku.getSpuId());
+            item.put("spuName", spu != null ? spu.getName() : "");
+
+            // 秒杀状态：未开始 / 进行中 / 已结束
+            if (sku.getSeckillStartTime() != null && now.before(sku.getSeckillStartTime())) {
+                item.put("seckillStatus", "PENDING");
+                item.put("seckillStatusText", "未开始");
+            } else if (sku.getSeckillEndTime() != null && now.after(sku.getSeckillEndTime())) {
+                item.put("seckillStatus", "ENDED");
+                item.put("seckillStatusText", "已结束");
+            } else {
+                item.put("seckillStatus", "ACTIVE");
+                item.put("seckillStatusText", "进行中");
+            }
+
+            // Redis 实时库存
+            String redisKey = stockPrefix + ":" + sku.getId();
+            Object redisStock = redisTemplate.opsForValue().get(redisKey);
+            if (redisStock != null) {
+                item.put("redisStock", Integer.parseInt(redisStock.toString()));
+            } else {
+                item.put("redisStock", sku.getPromotionStock() != null ? sku.getPromotionStock() : 0);
+            }
+
+            result.add(item);
+        }
+        return Result.success(result);
     }
 }

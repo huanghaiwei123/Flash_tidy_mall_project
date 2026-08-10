@@ -1,6 +1,6 @@
 # 潮汐商城（Flash Mall）开发进度
 
-> 最后更新：2026-08-09
+> 最后更新：2026-08-14
 
 ## 项目概况
 
@@ -8,10 +8,54 @@
 |------|------|
 | **项目名** | `hhw-mall-project`（潮汐商城） |
 | **主模块** | `Flash_Tidy-mall-project`（`flash-mall`） |
-| **技术栈** | JDK 8 / SpringBoot 2.7.18 / MyBatis-Plus 3.5.5 / Redis Cluster (Lettuce) / RabbitMQ / JWT / BCrypt / Guava / 支付宝沙箱 / Knife4j |
+| **技术栈** | JDK 8 / SpringBoot 2.7.18 / MyBatis-Plus 3.5.5 / Redis (Lettuce) / RabbitMQ / JWT / BCrypt / Guava / 支付宝沙箱 / Knife4j |
 | **包路径** | `com.gdou` |
 | **接口前缀** | `/hhw` |
-| **当前状态** | 🟡 今日新增优惠券模块、购物车模块、全局校验，等待编译验证 |
+| **当前状态** | 🟢 全功能已落地：用户/商家/管理员三端 + 支付 + 秒杀，等编译验证 |
+
+---
+
+## 2026-08-14 全量功能盘点（对照代码）
+
+> 本次盘点对照源码确认实际完成情况，修正了此前 PROGRESS.md 中"支付逻辑待办、地址缺 Controller"等已过时结论。
+
+### 用户端 ✅
+- 注册 / 登录（JWT + BCrypt）— `LoginController` / `RegisterController`
+- 商品浏览：列表（分类/关键词/分页）、详情、SKU 列表、分类树、店铺主页 — `GoodsController`
+- 收货地址 CRUD — `UserAddressController`
+- 购物车：增删改查/改数量/勾选/全选/汇总 — `UserShoppingCarController`
+- 下单：普通下单、查单、订单列表、取消、确认收货、再来一单 — `UserOrderController`
+- 优惠券：可领列表/领取/我的券（状态筛选）/下单验券 — `UserCouponController`
+- 秒杀：查秒杀商品、算术验证码、秒杀下单 — `UserSeckillController`
+- 个人中心：改资料、商家申请、切换卖家/管理员页 — `UserController`
+
+### 商家端 ✅
+- SPU：查询/上架/更新/上下架 — `MerchantSpuController`
+- SKU：增删改查/上下架/跨 SPU 汇总 — `MerchantSkuController`
+- 订单：查单/店铺订单列表/发货 — `MerchantOrderController`
+- 秒杀活动列表（含实时库存）— `MerchantSeckillController`
+- 优惠券 opt-in/opt-out — `MerchantCouponController`
+
+### 管理员端 ✅
+- 商家申请审核（筛选 + 通过/拒绝）— `admin/MerchantController`
+- 优惠券管理（增改查）— `admin/CouponController`
+- 分类管理（增删改查 + 树）— `admin/CategoryController`
+
+### 支付模块 ✅（支付宝沙箱完整接入）
+- `PayServiceImpl`：页面支付、异步通知 RSA2 验签 + app_id + 金额校验、同步回调主动查单兜底、退款（支付宝先退 + 本地乐观锁 + 恢复库存）
+- 订单状态流转：待支付 → 已支付 → 已发货 → 已收货 / 已取消 / 已退款
+
+### 秒杀模块 ✅
+- Redis Lua 原子扣减（`seckill.lua`）+ 算术验证码防脚本（一次性）+ RabbitMQ 异步建单 + 消息幂等（`MqOrderMessage` messageId）
+- 定时任务：`SeckillTask` / `EsSyncTask`
+- 压测：TPS 天花板 ~1500–1700（见 `seckill-performance-test-2026-08-12.md`）
+
+### 前端页面（static，12 个 HTML）✅
+`index` / `shop` / `goods-detail` / `cart` / `order-list` / `seckill` / `address` / `user-center` / `login` / `register` / `merchant` / `admin`
+
+### 遗留事项
+- [ ] 编译验证（JDK 8 工具链；本机 JDK 23 可能编译失败）
+- [ ] `pom.xml` 缺少 commons-pool2 依赖 → Lettuce 连接池未生效（压测文档已记录）
 
 ---
 
@@ -36,7 +80,7 @@
 - 下单时地址写入 addressSnapshot
 
 ### 待办（明日）
-- [ ] 支付逻辑（支付宝沙箱适配）
+- [x] 支付逻辑（支付宝沙箱适配）→ 已于后续完成，见 2026-08-14 盘点
 
 ---
 
@@ -94,18 +138,18 @@
 | 表 | 说明 | 状态 |
 |------|------|:---:|
 | `user` | 用户表 | 🟢 |
-| `user_address` | 收货地址 | 🔴 缺 Controller |
-| `category` | 商品分类（树形） | 🔴 缺 Controller |
-| `spu` | 商品主表（+ merchant_id） | 🟡 缺 PUT/DELETE |
-| `sku` | 库存单元（含秒杀 + 库存三字段） | 🔴 缺 Controller |
-| `role` | 角色表（RBAC） | 🔴 缺 Controller |
-| `user_role` | 用户角色关联 | 🔴 缺 Controller |
-| `order` | 统一订单 | 🟡 缺 POST |
+| `user_address` | 收货地址 | 🟢 |
+| `category` | 商品分类（树形） | 🟢 |
+| `spu` | 商品主表（+ merchant_id） | 🟢 |
+| `sku` | 库存单元（含秒杀 + 库存三字段） | 🟢 |
+| `role` | 角色表（RBAC） | 🟢 随用户模块使用 |
+| `user_role` | 用户角色关联 | 🟢 随用户模块使用 |
+| `order` | 统一订单 | 🟢 |
 | `order_item` | 订单明细 | 🟢 随 order 创建 |
-| `coupon` | 优惠券模板（new） | 🟢 |
-| `coupon_merchant` | 优惠券-商家关联（new） | 🟢 |
-| `user_coupon` | 用户优惠券（new） | 🟢 |
-| `shopping_car` | 购物车（new） | 🟢 |
+| `coupon` | 优惠券模板 | 🟢 |
+| `coupon_merchant` | 优惠券-商家关联 | 🟢 |
+| `user_coupon` | 用户优惠券 | 🟢 |
+| `shopping_car` | 购物车 | 🟢 |
 
 ### 库存三字段（sku 表）
 
@@ -119,31 +163,43 @@
 ## 核心域开发计划
 
 - [x] **基础架构**：Result、异常处理、常量、MP 配置、Redis 配置
-- [ ] **用户模块**：注册 / 登录（JWT）/ 收货地址
-- [ ] **商品模块**：分类 CRUD / SPU CRUD / SKU CRUD + 库存管理
-- [ ] **订单模块**：普通下单 / 订单列表 / 订单状态流转
-- [ ] **支付模块**：支付宝沙箱（适配新订单表）
-- [ ] **秒杀模块**：is_seckill + promotion_stock + Redis 分桶 10 个 + Lua 原子扣减 + MQ 异步 + 布隆过滤器 + 限流 + 验证码
+- [x] **用户模块**：注册 / 登录（JWT）/ 收货地址
+- [x] **商品模块**：分类 CRUD / SPU CRUD / SKU CRUD + 库存管理
+- [x] **订单模块**：普通下单 / 订单列表 / 订单状态流转
+- [x] **支付模块**：支付宝沙箱（适配新订单表）
+- [x] **秒杀模块**：is_seckill + promotion_stock + Lua 原子扣减 + MQ 异步 + 布隆过滤器 + 验证码
 - [x] **购物车**：已改为数据库存储（非 Redis hash），含勾选、全选、汇总
 - [x] **优惠券模块**：管理员发券、商家参与、用户领券/验券
 
-## 接口规划
+## 接口规划（实际已实现）
 
 | 方法 | 路径 | 说明 | 登录 |
 |:---:|------|------|:---:|
 | POST | `/hhw/register` | 注册 | ❌ |
 | POST | `/hhw/login` | 登录 | ❌ |
 | GET | `/hhw/goods/list` | 商品列表 | ❌ |
-| GET | `/hhw/goods/{skuId}` | 商品详情 | ❌ |
-| POST | `/hhw/order` | 创建订单 | ✅ |
-| GET | `/hhw/order/{id}` | 订单详情 | ✅ |
-| GET | `/hhw/order/list` | 我的订单 | ✅ |
-| POST | `/hhw/seckill/onseckill/{skuId}` | 执行秒杀 ⚡ | ✅ |
-| GET | `/hhw/seckill/getToken/{skuId}` | 获取秒杀令牌 | ✅ |
-| POST | `/hhw/pay/{orderId}` | 支付宝支付 | ✅ |
-| POST | `/hhw/pay/cancel/{orderId}` | 取消订单 | ✅ |
-| POST | `/hhw/pay/refund/{orderId}` | 退款 | ✅ |
+| GET | `/hhw/goods/{spuId}` | 商品详情 | ❌ |
+| GET | `/hhw/goods/{spuId}/skus` | SKU 列表 | ❌ |
+| GET | `/hhw/goods/categories` | 分类树 | ❌ |
+| GET | `/hhw/goods/shop/{merchantId}` | 店铺主页 | ❌ |
+| POST | `/hhw/user/order/create` | 创建订单（NORMAL/SECKILL） | ✅ |
+| GET | `/hhw/user/order/query` | 订单详情 | ✅ |
+| GET | `/hhw/user/order/queryList` | 我的订单 | ✅ |
+| POST | `/hhw/user/order/delete/{orderNo}` | 取消订单 | ✅ |
+| POST | `/hhw/user/order/receive/{orderNo}` | 确认收货 | ✅ |
+| POST | `/hhw/user/order/reorder/{orderNo}` | 再来一单 | ✅ |
+| POST | `/hhw/seckill/start` | 执行秒杀 ⚡ | ✅ |
+| GET | `/hhw/seckill/query` | 秒杀商品列表 | ✅ |
+| GET | `/hhw/seckill/captcha` | 秒杀验证码 | ✅ |
+| POST | `/hhw/pay/{orderNo}` | 支付宝支付 | ✅ |
+| POST | `/hhw/pay/refund/{orderNo}` | 退款 | ✅ |
 | POST | `/hhw/pay/notify` | 支付宝异步回调 | ❌ RSA2 |
+| GET | `/hhw/pay/return` | 支付宝同步回调 | ❌ |
+| POST/GET/PUT/DELETE | `/hhw/address/**` | 收货地址 CRUD | ✅ |
+| POST/GET/PUT/DELETE | `/hhw/user/cart/**` | 购物车 | ✅ |
+| GET/POST | `/hhw/user/coupon/**` | 用户优惠券 | ✅ |
+| POST/GET | `/hhw/merchant/**` | 商家：SPU/SKU/订单/发货/秒杀/券 | ✅ |
+| GET/POST/PUT/DELETE | `/hhw/admin/**` | 管理员：审核/优惠券/分类 | ✅ |
 
 ## 历史记录
 

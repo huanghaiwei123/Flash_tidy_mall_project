@@ -124,6 +124,7 @@ CREATE TABLE `sku` (
 
     -- 秒杀相关字段
     `is_seckill`        TINYINT       DEFAULT 0                COMMENT '是否参与秒杀：0=否 1=是',
+    `is_seckill_stock`   int          not null default 0       comment '参与秒杀商品库存',
     `seckill_price`     DECIMAL(10,2) DEFAULT NULL             COMMENT '秒杀价格',
     `seckill_start_time` DATETIME     DEFAULT NULL             COMMENT '秒杀开始时间',
     `seckill_end_time`  DATETIME      DEFAULT NULL             COMMENT '秒杀结束时间',
@@ -139,16 +140,14 @@ CREATE TABLE `sku` (
     KEY `idx_status`        (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='SKU 库存单元表（含秒杀 + 库存三字段）';
 
-
 -- ============================================================
 -- 6. 统一订单表（替代旧 seckill_order + user_seckill_record，order_type 区分普通/秒杀）
 -- ============================================================
 DROP TABLE IF EXISTS `order`;
 CREATE TABLE `order` (
     `id`                BIGINT        NOT NULL AUTO_INCREMENT  COMMENT '订单ID',
-    `order_no`          VARCHAR(32)   NOT NULL                 COMMENT '订单编号（唯一，业务流水号）',
+    `order_no`          VARCHAR(36)   NOT NULL                 COMMENT '订单编号（唯一，业务流水号）',
     `user_id`           BIGINT        NOT NULL                 COMMENT '用户ID',
-    merchant_id         bigint        not null                 comment '商家id',
     -- 订单类型 & 状态
     `order_type`        VARCHAR(16)   NOT NULL DEFAULT 'NORMAL' COMMENT '订单类型：NORMAL=普通 SECKILL=秒杀',
     `status`            VARCHAR(24)   NOT NULL DEFAULT 'PENDING_PAY' COMMENT '订单状态：PENDING_PAY=待支付 PAID=已支付 SHIPPED=已发货 RECEIVED=已收货 COMPLETED=已完成 CANCELLED=已取消 REFUNDING=退款中 REFUNDED=已退款',
@@ -221,9 +220,10 @@ DROP TABLE IF EXISTS `order_item`;
 CREATE TABLE `order_item` (
     `id`            BIGINT        NOT NULL AUTO_INCREMENT  COMMENT '明细ID',
     `order_id`      BIGINT        NOT NULL                 COMMENT '订单ID',
-    `order_no`      VARCHAR(32)   NOT NULL                 COMMENT '订单编号（冗余，方便查询）',
+    `order_no`      VARCHAR(36)   NOT NULL                 COMMENT '订单编号（冗余，方便查询）',
     `spu_id`        BIGINT        NOT NULL                 COMMENT 'SPU ID',
     `sku_id`        BIGINT        NOT NULL                 COMMENT 'SKU ID',
+    `merchant_id`   BIGINT        NOT NULL                 COMMENT '商家ID（冗余，方便商家查询属于自己的订单明细）',
 
     -- SKU 快照（下单时冗余存储，不受商品变更影响）
     `sku_name`      VARCHAR(256)  NOT NULL                 COMMENT 'SKU 名称快照',
@@ -233,14 +233,13 @@ CREATE TABLE `order_item` (
 
     `quantity`      INT           NOT NULL DEFAULT 1       COMMENT '购买数量',
     `total_price`   DECIMAL(10,2) NOT NULL DEFAULT 0.00    COMMENT '明细总价（= sku_price × quantity）',
+    `item_status`   VARCHAR(24)   NOT NULL DEFAULT 'PENDING' COMMENT '明细状态：PENDING=待处理 SHIPPED=已发货 RECEIVED=已收货',
 
     `create_time`   DATETIME      DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
     KEY `idx_order_id`  (`order_id`),
     KEY `idx_order_no`  (`order_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单明细表';
-
-
 -- ============================================================
 -- 9. 优惠券模板表（管理员创建）
 -- ============================================================
@@ -308,6 +307,7 @@ CREATE TABLE `shopping_car` (
     `user_id`       BIGINT   NOT NULL                 COMMENT '用户ID',
     `spu_id`        BIGINT   NOT NULL                 COMMENT 'SPU ID（冗余，方便展示商品名、图片）',
     `sku_id`        BIGINT   NOT NULL                 COMMENT 'SKU ID',
+    `merchant_id`   BIGINT       NOT NULL                 COMMENT '商家ID',
     `quantity`      INT      NOT NULL DEFAULT 1       COMMENT '购买数量',
     `selected`      TINYINT  DEFAULT 1                COMMENT '是否勾选：0=未勾选 1=勾选',
     `create_time`   DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '添加时间',
@@ -335,3 +335,22 @@ CREATE TABLE `merchant_application` (
                                         KEY `idx_user_id`   (`user_id`),
                                         KEY `idx_status`    (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商家申请表';
+
+-- ============================================================
+-- 13. 商家表（店铺信息，id 与 user.id 一致——商家即用户）
+-- ============================================================
+DROP TABLE IF EXISTS `merchant`;
+CREATE TABLE `merchant` (
+    `id`                BIGINT       NOT NULL                  COMMENT '商家ID（= 用户ID，与 user.id 一致）',
+    `shop_name`         VARCHAR(64)  NOT NULL                 COMMENT '店铺名称',
+    `shop_logo`         VARCHAR(256) DEFAULT NULL             COMMENT '店铺 Logo URL',
+    `shop_description`  VARCHAR(512) DEFAULT NULL             COMMENT '店铺简介',
+    `contact_phone`     VARCHAR(20)  DEFAULT NULL             COMMENT '店铺联系电话',
+    `status`            TINYINT      DEFAULT 1                COMMENT '状态：0=禁用 1=正常',
+    `create_time`       DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time`       DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_shop_name` (`shop_name`),
+    KEY `idx_status`    (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商家表（店铺信息，id与user一致）';
+

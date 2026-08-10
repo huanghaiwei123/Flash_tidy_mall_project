@@ -1,6 +1,5 @@
 package com.gdou.mq;
 
-import com.gdou.pojo.dto.OrderDto;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
@@ -18,4 +17,5 @@ public class MqSender{
     public void orderDelaySend(String exchangeName, String routingKey, MqOrderDelayMessage mqOrderDelayMessage) {
         rabbitTemplate.convertAndSend(exchangeName, routingKey, mqOrderDelayMessage);
     }
+
 }

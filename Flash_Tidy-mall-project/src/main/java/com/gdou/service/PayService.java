@@ -31,4 +31,10 @@ public interface PayService {
      * @return 退款结果
      */
     Result refund(Long userId, String orderNo);
+
+    /**
+     * 主动查询支付宝支付结果（同步回调备用）
+     * @param orderNo 订单编号
+     */
+    void queryPayResult(String orderNo);
 }

@@ -22,7 +22,6 @@ public class UserOrderController {
     @GetMapping("/order/query")
     public Result orderQuery(@RequestParam String orderNo) {
         Long userId = UserHolder.get();
-        log.info("用户{}正在查询编号为{}的订单",userId,orderNo);
         return orderService.orderQueryByUser(userId,orderNo);
     }
 
@@ -38,11 +37,17 @@ public class UserOrderController {
         return orderService.orderQueryListByUser(userId);
     }
 
+    /**
+     * 用户普通下单
+     * @param orderDto
+     * @return
+     */
     @PostMapping("/order/create")
     public Result orderCreate(@RequestBody OrderDto orderDto) {
         Long userId = UserHolder.get();
         log.info("用户{}正在在创建订单",userId);
-        return orderService.orderCreate(userId,orderDto);
+        String orderType="NORMAL";
+        return orderService.orderCreate(userId,orderDto,orderType);
     }
 
     /**
@@ -54,6 +59,30 @@ public class UserOrderController {
     public Result orderCancel(@PathVariable String orderNo) {
         log.info("用户{}正在取消标号为{}的订单",UserHolder.get(),orderNo);
         return orderService.orderCancel(UserHolder.get(),orderNo);
+    }
+
+    /**
+     * 用户确认收货
+     * @param orderNo 订单编号
+     * @return
+     */
+    @PostMapping("/order/receive/{orderNo}")
+    public Result orderReceive(@PathVariable String orderNo) {
+        Long userId = UserHolder.get();
+        log.info("用户{}确认收货订单{}", userId, orderNo);
+        return orderService.receive(userId, orderNo);
+    }
+
+    /**
+     * 再来一单 — 将订单商品重新加入购物车
+     * @param orderNo 订单编号
+     * @return
+     */
+    @PostMapping("/order/reorder/{orderNo}")
+    public Result orderReorder(@PathVariable String orderNo) {
+        Long userId = UserHolder.get();
+        log.info("用户{}对订单{}再来一单", userId, orderNo);
+        return orderService.reorder(userId, orderNo);
     }
 
 

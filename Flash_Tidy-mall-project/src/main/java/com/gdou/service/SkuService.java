@@ -51,4 +51,9 @@ public interface SkuService extends IService<Sku> {
      * 用户端查询某 SPU 下的上架 SKU（无需登录）
      */
     Result userQuerySkusBySpu(Long spuId);
+
+    /**
+     * 商家查询自己的所有秒杀 SKU（含 SPU 名称、Redis 实时库存）
+     */
+    Result queryMySeckillSkus(Long merchantId);
 }

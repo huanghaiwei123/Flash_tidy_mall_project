@@ -14,6 +14,7 @@ import com.gdou.pojo.entity.Sku;
 import com.gdou.pojo.entity.Spu;
 import com.gdou.pojo.vo.SpuDetailVo;
 import com.gdou.pojo.vo.SpuListVo;
+import com.gdou.service.SpuSearchService;
 import com.gdou.service.SpuService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -42,6 +43,8 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
     private CategoryMapper categoryMapper;
     @Autowired
     private SkuMapper skuMapper;
+    @Autowired
+    private SpuSearchService spuSearchService;
 
     // ===================== 商家端 =====================
 
@@ -62,13 +65,22 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
     public Result spuSave(Long merchantId, SpuDto spuDto) {
         Spu spu = new Spu();
         BeanUtils.copyProperties(spuDto, spu);
-        LambdaQueryWrapper<Category> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Category::getName, spuDto.getCategoryName());
-        Category category = categoryMapper.selectOne(wrapper);
-        if (category == null) {
-            return Result.Fail("分类不存在，请先创建分类");
+        Long categoryId = spuDto.getCategoryId();
+        if (categoryId != null) {
+            // 优先使用下拉框选中的分类ID
+            Category category = categoryMapper.selectById(categoryId);
+            if (category == null) return Result.Fail("分类不存在");
+            spu.setCategoryName(category.getName());
+        } else if (spuDto.getCategoryName() != null && !spuDto.getCategoryName().isEmpty()) {
+            // 兼容手动输入分类名
+            LambdaQueryWrapper<Category> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Category::getName, spuDto.getCategoryName());
+            Category category = categoryMapper.selectOne(wrapper);
+            if (category == null) return Result.Fail("分类不存在，请先创建分类");
+            categoryId = category.getId();
+        } else {
+            return Result.Fail("商品分类不能为空");
         }
-        Long categoryId = category.getId();
         spu.setMerchantId(merchantId);
         spu.setCategoryId(categoryId);
         spu.setCreateTime(new Date());
@@ -92,8 +104,14 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
         }
         BeanUtils.copyProperties(spuDto, spu);
         spu.setId(spuId);
-        // 分类名称变了，更新分类 ID
-        if (spuDto.getCategoryName() != null) {
+        // 分类更新：categoryId 优先，categoryName 兜底
+        if (spuDto.getCategoryId() != null) {
+            Category category = categoryMapper.selectById(spuDto.getCategoryId());
+            if (category != null) {
+                spu.setCategoryId(category.getId());
+                spu.setCategoryName(category.getName());
+            }
+        } else if (spuDto.getCategoryName() != null && !spuDto.getCategoryName().isEmpty()) {
             LambdaQueryWrapper<Category> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(Category::getName, spuDto.getCategoryName());
             Category category = categoryMapper.selectOne(wrapper);
@@ -153,6 +171,17 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
             }
         }
 
+        // 优先走 ES，异常时回退 MySQL LIKE
+        try {
+            return spuSearchService.search(categoryIds, keyword, page, size);
+        } catch (Exception e) {
+            log.warn("ES 搜索异常，回退 MySQL LIKE: {}", e.getMessage());
+            return mysqlSearch(categoryIds, keyword, page, size);
+        }
+    }
+
+    /** 原 MySQL LIKE 搜索（ES 挂掉时的兜底） */
+    private Result mysqlSearch(Set<Long> categoryIds, String keyword, Integer page, Integer size) {
         LambdaQueryWrapper<Spu> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Spu::getStatus, 1); // 只查上架商品
         if (!categoryIds.isEmpty()) {
@@ -191,8 +220,8 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
         result.put("size", size);
         result.put("records", voList);
 
-        log.info("用户浏览商品列表：categoryId={}, keyword={}, page={}, 共{}条",
-                categoryId, keyword, page, spuPage.getTotal());
+        log.info("用户浏览商品列表（MySQL 兜底）：categoryIds={}, keyword={}, page={}, 共{}条",
+                categoryIds, keyword, page, spuPage.getTotal());
         return Result.success(result);
     }
 

@@ -30,43 +30,88 @@ async function loadOrders() {
 
 function renderOrders() {
   var html = '';
-  orders.forEach(function(order) {
+  var statusMap = {
+    'PENDING_PAY': { cls: 'badge-warning', txt: '待支付' },
+    'PAID':        { cls: 'badge-info',    txt: '已支付' },
+    'SHIPPED':     { cls: 'badge-primary', txt: '已发货' },
+    'RECEIVED':    { cls: 'badge-success', txt: '已收货' },
+    'COMPLETED':   { cls: 'badge-success', txt: '已完成' },
+    'CANCELLED':   { cls: 'badge-default', txt: '已取消' },
+    'REFUNDING':   { cls: 'badge-warning', txt: '退款中' },
+    'REFUNDED':    { cls: 'badge-default', txt: '已退款' }
+  };
+
+  orders.forEach(function(wrapper) {
+    var order = wrapper.order || wrapper;
+    var items = wrapper.items || [];
+    var st = statusMap[order.status] || { cls: 'badge-default', txt: order.status || '未知' };
+
+    // 解析收货地址
     var addr = order.addressSnapshot;
     var addrStr = '';
+    if (typeof addr === 'string') { try { addr = JSON.parse(addr); } catch(e) {} }
     if (typeof addr === 'object' && addr) {
-      addrStr = esc(addr.name || '') + ' ' + esc(addr.phone || '') + ' ' + esc(addr.address || '');
-    } else if (typeof addr === 'string') {
-      addrStr = esc(addr);
+      addrStr = esc(addr.receiverName || '') + ' ' + esc(addr.phone || '') + ' '
+              + esc(addr.province || '') + ' ' + esc(addr.city || '') + ' ' + esc(addr.district || '') + ' '
+              + esc(addr.detail || '');
     }
-    var statusMap = {
-      'PENDING_PAY': { cls: 'badge-warning', txt: '待支付' },
-      'PAID':        { cls: 'badge-info',    txt: '已支付' },
-      'SHIPPED':     { cls: 'badge-primary', txt: '已发货' },
-      'RECEIVED':    { cls: 'badge-success', txt: '已收货' },
-      'COMPLETED':   { cls: 'badge-success', txt: '已完成' },
-      'CANCELLED':   { cls: 'badge-default', txt: '已取消' },
-      'REFUNDING':   { cls: 'badge-warning', txt: '退款中' },
-      'REFUNDED':    { cls: 'badge-default', txt: '已退款' }
-    };
-    var st = statusMap[order.status] || { cls: 'badge-default', txt: order.status || '未知' };
+
+    // 按店铺分组商品
+    var shopMap = {};
+    items.forEach(function(item) {
+      var key = item.merchantName || '店铺(' + (item.merchantId || '未知') + ')';
+      if (!shopMap[key]) shopMap[key] = [];
+      shopMap[key].push(item);
+    });
+
+    // 商品列表 HTML
+    var itemsHtml = '';
+    Object.keys(shopMap).forEach(function(shopName) {
+      itemsHtml += '<div style="margin-bottom:12px;">';
+      itemsHtml += '<div style="font-weight:600;font-size:15px;margin-bottom:6px;">🏪 ' + esc(shopName) + '</div>';
+      shopMap[shopName].forEach(function(item) {
+        var itemStMap = { 'PENDING':'⏳待处理', 'SHIPPED':'📦已发货', 'RECEIVED':'✅已收货' };
+        var itemSt = itemStMap[item.itemStatus] || '';
+        itemsHtml +=
+          '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f0f0f0;">' +
+          '  <img src="' + (item.skuImage || '') + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" onerror="this.style.display=\'none\'">' +
+          '  <div style="flex:1;">' +
+          '    <div style="font-weight:500;">' + esc(item.skuName || '') + '</div>' +
+          '    <div style="color:#999;font-size:12px;">' + esc(item.skuSpec || '') + '</div>' +
+          '  </div>' +
+          '  <div style="text-align:right;">' +
+          '    <div style="color:var(--primary);font-weight:600;">¥' + (item.skuPrice || 0) + '</div>' +
+          '    <div style="color:#999;font-size:12px;">×' + item.quantity + '</div>' +
+          (itemSt ? '<div style="font-size:11px;color:#666;">' + itemSt + '</div>' : '') +
+          '  </div>' +
+          '</div>';
+      });
+      itemsHtml += '</div>';
+    });
 
     html +=
       '<div class="order-card">' +
+      // 顶部：店铺 + 状态
       '  <div class="order-header">' +
-      '    <div><strong>订单号：</strong>' + esc(order.orderNo) + '</div>' +
+      '    <div><strong>订单号：</strong><span style="font-size:12px;color:#999;">' + esc(order.orderNo) + '</span></div>' +
       '    <div><span class="badge ' + st.cls + '">' + st.txt + '</span></div>' +
       '  </div>' +
+      // 中部：商品
       '  <div class="order-body">' +
-      '    <div class="order-row"><span>订单类型：</span>' + (order.orderType === 'SECKILL' ? '⚡秒杀' : '🛒普通') + '</div>' +
-      '    <div class="order-row"><span>商品金额：</span>¥' + (order.totalAmount || 0) + '</div>' +
-      '    <div class="order-row"><span>优惠金额：</span>-¥' + (order.discountAmount || 0) + '</div>' +
-      '    <div class="order-row"><span>实付金额：</span><strong style="color:var(--primary);">¥' + (order.payAmount || 0) + '</strong></div>' +
-      '    <div class="order-row"><span>收货信息：</span>' + addrStr + '</div>' +
-      '    <div class="order-row"><span>下单时间：</span>' + (order.createTime || '') + '</div>' +
+      itemsHtml +
+      // 底部：金额 + 时间 + 地址
+      '    <div style="text-align:right;margin-top:8px;padding-top:8px;border-top:1px solid #f0f0f0;">' +
+      '      <span style="color:#999;margin-right:16px;">收货人：' + addrStr + '</span>' +
+      '      <span style="margin-right:16px;">共 ' + items.length + ' 件</span>' +
+      '      <span style="color:#999;">实付：</span><strong style="color:var(--primary);font-size:16px;">¥' + (order.payAmount || 0) + '</strong>' +
+      '    </div>' +
+      '    <div style="text-align:right;color:#999;font-size:12px;margin-top:4px;">下单时间：' + fmtTime(order.createTime) + '</div>' +
       '  </div>' +
       '  <div class="order-footer">' +
-      '    <button class="btn btn-sm" onclick="viewDetail(\'' + esc(order.orderNo) + '\')">查看详情</button>' +
-      (order.status === 'PENDING_PAY' ? '<button class="btn btn-sm btn-danger" onclick="cancelOrder(\'' + esc(order.orderNo) + '\')">取消订单</button>' : '') +
+      (order.status === 'PENDING_PAY' ? '<button class="btn btn-sm btn-primary" onclick="payOrder(\'' + esc(order.orderNo) + '\')">去支付</button><button class="btn btn-sm btn-danger" onclick="cancelOrder(\'' + esc(order.orderNo) + '\')">取消订单</button>' : '') +
+      (order.status === 'PAID' ? '<button class="btn btn-sm btn-warning" onclick="refundOrder(\'' + esc(order.orderNo) + '\')">申请退款</button>' : '') +
+      (order.status === 'SHIPPED' ? '<button class="btn btn-sm btn-success" onclick="receiveOrder(\'' + esc(order.orderNo) + '\')">确认收货</button>' : '') +
+      (order.status !== 'PENDING_PAY' ? '<button class="btn btn-sm" onclick="reorder(\'' + esc(order.orderNo) + '\')">🛒 再来一单</button>' : '') +
       '  </div>' +
       '</div>';
   });
@@ -77,6 +122,17 @@ async function viewDetail(orderNo) {
   var res = await get('/user/order/query', { orderNo: orderNo });
   if (!res || res.code !== 200) { toast(res && res.msg || '查询失败', 'error'); return; }
   toast('订单详情功能完善中');
+}
+
+async function payOrder(orderNo) {
+  var res = await post('/pay/' + orderNo);
+  if (!res) return;
+  if (res.code === 200 && res.data) {
+    document.write(res.data);
+    document.close();
+  } else {
+    toast(res.msg || '支付发起失败', 'error');
+  }
 }
 
 async function cancelOrder(orderNo) {
@@ -91,6 +147,46 @@ async function cancelOrder(orderNo) {
   }
 }
 
+async function refundOrder(orderNo) {
+  if (!confirm('确认申请退款？退款将原路返回。')) return;
+  var res = await post('/pay/refund/' + orderNo);
+  if (!res) return;
+  if (res.code === 200) {
+    toast('退款申请已提交');
+    loadOrders();
+  } else {
+    toast(res.msg || '退款失败', 'error');
+  }
+}
+
+async function receiveOrder(orderNo) {
+  if (!confirm('确认已收到商品？')) return;
+  var res = await post('/user/order/receive/' + orderNo);
+  if (!res) return;
+  if (res.code === 200) {
+    toast('已确认收货，订单完成');
+    loadOrders();
+  } else {
+    toast(res.msg || '收货失败', 'error');
+  }
+}
+
+async function reorder(orderNo) {
+  var res = await post('/user/order/reorder/' + orderNo);
+  if (!res) return;
+  if (res.code === 200) {
+    toast(res.msg || '已加入购物车');
+  } else {
+    toast(res.msg || '操作失败', 'error');
+  }
+}
+
+function fmtTime(t) {
+  if (!t) return '';
+  var d = new Date(t);
+  return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日 '
+       + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
 function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
 loadOrders();

@@ -36,6 +36,7 @@ public class LoginServiceImpl implements LoginService {
                 String jwt = jwtUtil.jwtGenerate(userId, phone);
                 map.put("token", jwt);
                 // 返回用户信息，前端存入 localStorage 避免每次查库
+                map.put("userId", userId);
                 map.put("nickname", user.getNickname());
                 map.put("phone", user.getPhone());
                 map.put("email", user.getEmail());

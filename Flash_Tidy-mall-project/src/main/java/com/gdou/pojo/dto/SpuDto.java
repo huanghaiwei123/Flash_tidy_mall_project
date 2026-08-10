@@ -21,9 +21,13 @@ public class SpuDto {
     private String description;
 
     /**
-     * 所属分类名称
+     * 所属分类ID（下拉框选中后传此值即可，无需传 categoryName）
      */
-    @NotBlank(message = "商品分类不能为空")
+    private Long categoryId;
+
+    /**
+     * 所属分类名称（兼容旧前端手动输入，categoryId 优先）
+     */
     private String categoryName;
 
     /**
