@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台 - 潮汐商城</title>
+<link rel="stylesheet" href="http://localhost:8080/css/style.css">
+<link rel="icon" type="image/png" href="http://localhost:8080/img/logo.png">
+</head>
+<body data-auth="true">
+<div id="navbar"></div>
+<div class="container">
+  <h1>⚙️ 管理后台</h1>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('category')">📂 分类管理</button>
+    <button class="tab" onclick="switchTab('coupon')">🎫 优惠券管理</button>
+    <button class="tab" onclick="switchTab('merchantApp')">🏪 商家申请</button>
+  </div>
+
+  <!-- ==================== 分类管理 ==================== -->
+  <div class="tab-panel" id="panel-category">
+    <div style="margin-bottom:16px;display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="showCateForm()">+ 新增分类</button>
+      <button class="btn" onclick="loadCateTree()">🔄 刷新</button>
+    </div>
+    <div id="cateTree"><div class="loading"><span class="spinner"></span>加载中...</div></div>
+  </div>
+
+  <!-- ==================== 优惠券管理 ==================== -->
+  <div class="tab-panel" id="panel-coupon" style="display:none;">
+    <div style="margin-bottom:16px;display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="showCouponForm()">+ 新增优惠券</button>
+      <button class="btn" onclick="loadCouponList()">🔄 刷新</button>
+    </div>
+    <div id="couponList"><div class="loading">点击上方标签加载</div></div>
+  </div>
+
+  <!-- ==================== 商家申请审核 ==================== -->
+  <div class="tab-panel" id="panel-merchantApp" style="display:none;">
+    <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center;">
+      <select id="maStatusFilter" onchange="loadMerchantApps()">
+        <option value="PENDING">待审核</option>
+        <option value="APPROVED">已通过</option>
+        <option value="REJECTED">已拒绝</option>
+      </select>
+      <button class="btn" onclick="loadMerchantApps()">🔄 刷新</button>
+    </div>
+    <div id="merchantAppList"><div class="loading">点击上方标签加载</div></div>
+  </div>
+</div>
+
+<!-- 分类弹窗 -->
+<div class="modal" id="cateModal" style="display:none;">
+  <div class="modal-overlay" onclick="closeCateModal()"></div>
+  <div class="modal-box">
+    <h3 id="cateModalTitle">新增分类</h3>
+    <form id="cateForm">
+      <div class="form-group">
+        <label>分类名称 *</label>
+        <input type="text" id="cateName" required>
+      </div>
+      <div class="form-group">
+        <label>父分类</label>
+        <select id="cateParent"><option value="0">顶级分类</option></select>
+      </div>
+      <div class="form-group">
+        <label>图标</label>
+        <input type="text" id="cateIcon" placeholder="如 📱">
+      </div>
+      <div class="form-group">
+        <label>排序</label>
+        <input type="number" id="cateSort" value="0">
+      </div>
+      <div class="form-group">
+        <label>状态</label>
+        <select id="cateStatus"><option value="1">显示</option><option value="0">隐藏</option></select>
+      </div>
+      <input type="hidden" id="cateEditId">
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn" onclick="closeCateModal()">取消</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 优惠券弹窗 -->
+<div class="modal" id="couponModal" style="display:none;">
+  <div class="modal-overlay" onclick="closeCouponModal()"></div>
+  <div class="modal-box" style="max-width:550px;">
+    <h3 id="couponModalTitle">新增优惠券</h3>
+    <form id="couponForm">
+      <div class="form-group"><label>名称 *</label><input type="text" id="cpName" required></div>
+      <div class="form-row">
+        <div class="form-group"><label>类型</label>
+          <select id="cpType"><option value="FULL_REDUCTION">满减券</option><option value="DISCOUNT">折扣券</option></select>
+        </div>
+        <div class="form-group"><label>优惠金额/折扣 *</label><input type="number" id="cpValue" step="0.01" required></div>
+      </div>
+      <div class="form-group"><label>最低消费金额</label><input type="number" id="cpMinAmount" step="0.01" value="0"></div>
+      <div class="form-row">
+        <div class="form-group"><label>发行总量</label><input type="number" id="cpTotal" value="100"></div>
+        <div class="form-group"><label>每人限领</label><input type="number" id="cpPerUser" value="1"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>开始时间</label><input type="datetime-local" id="cpStart"></div>
+        <div class="form-group"><label>结束时间</label><input type="datetime-local" id="cpEnd"></div>
+      </div>
+      <div class="form-group"><label>状态</label>
+        <select id="cpStatus"><option value="1">启用</option><option value="0">停用</option></select>
+      </div>
+      <input type="hidden" id="cpEditId">
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn" onclick="closeCouponModal()">取消</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="http://localhost:8080/js/api.js"></script>
+<script src="http://localhost:8080/js/common.js"></script>
+<script>
+// ==================== Tab 切换 ====================
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.style.display = 'none'; });
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('panel-' + name).style.display = 'block';
+  event.target.classList.add('active');
+  if (name === 'category' && !window._cateLoaded) { window._cateLoaded = true; loadCateTree(); }
+  if (name === 'coupon' && !window._couponLoaded) { window._couponLoaded = true; loadCouponList(); }
+  if (name === 'merchantApp' && !window._merchantAppLoaded) { window._merchantAppLoaded = true; loadMerchantApps(); }
+}
+
+// ==================== 分类 ====================
+var cateFlatList = [];
+
+async function loadCateTree() {
+  var container = document.getElementById('cateTree');
+  container.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+  var res = await get('/admin/category/tree');
+  if (!res || res.code !== 200) { container.innerHTML = '<div class="loading">加载失败</div>'; return; }
+  cateFlatList = flattenTree(res.data || []);
+  renderCateTree(container, res.data || []);
+}
+
+function flattenTree(nodes) {
+  var arr = [];
+  if (!nodes) return arr;
+  nodes.forEach(function(n) {
+    arr.push(n);
+    if (n.children && n.children.length) arr = arr.concat(flattenTree(n.children));
+  });
+  return arr;
+}
+
+function renderCateTree(container, nodes) {
+  if (!nodes || !nodes.length) { container.innerHTML = '<div class="loading">暂无分类</div>'; return; }
+  var html = '<table class="table"><thead><tr><th>名称</th><th>排序</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+  var rows = [];
+  function walk(list, d, parentId) {
+    list.forEach(function(c) {
+      var hasChild = c.children && c.children.length > 0;
+      var levelColors = ['#333', '#1a73e8', '#5f6368', '#80868b'];
+      var color = levelColors[d] || '#999';
+      var toggleBtn = hasChild
+        ? '<span class="tree-toggle" id="tog_' + c.id + '" onclick="toggleCateBranch(' + c.id + ')" style="cursor:pointer;margin-right:6px;user-select:none">▾</span>'
+        : '<span style="display:inline-block;width:20px;margin-right:4px"></span>';
+      rows.push('<tr id="row_' + c.id + '" data-cate-pid="' + (parentId || 0) + '">' +
+        '<td><span style="display:inline-block;padding-left:' + (d * 24) + 'px">' + toggleBtn + '<span style="color:' + color + ';font-weight:' + (d === 0 ? '600' : '400') + '">' + esc(c.name) + '</span></span></td>' +
+        '<td>' + (c.sort || 0) + '</td>' +
+        '<td><span class="badge ' + (c.status === 1 ? 'badge-success' : 'badge-default') + '">' + (c.status === 1 ? '显示' : '隐藏') + '</span></td>' +
+        '<td>' +
+        '  <button class="btn btn-sm" onclick="editCate(' + c.id + ')">编辑</button>' +
+        '  <button class="btn btn-sm btn-danger" onclick="deleteCate(' + c.id + ')">删除</button>' +
+        '</td></tr>');
+      if (hasChild) walk(c.children, d + 1, c.id);
+    });
+  }
+  walk(nodes, 0, 0);
+  html += rows.join('') + '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function toggleCateBranch(cateId) {
+  var tog = document.getElementById('tog_' + cateId);
+  var collapsed = tog._collapsed;
+  tog._collapsed = !collapsed;
+  tog.textContent = collapsed ? '▾' : '▸';
+  var queue = [cateId];
+  while (queue.length > 0) {
+    var pid = queue.shift();
+    var allRows = document.querySelectorAll('[data-cate-pid="' + pid + '"]');
+    allRows.forEach(function(r) {
+      if (collapsed) {
+        r.style.display = '';
+        var rCid = parseInt(r.id.replace('row_', ''));
+        if (rCid) queue.push(rCid);
+      } else {
+        r.style.display = 'none';
+        var rCid = parseInt(r.id.replace('row_', ''));
+        if (rCid) {
+          queue.push(rCid);
+          var childTog = document.getElementById('tog_' + rCid);
+          if (childTog) { childTog._collapsed = true; childTog.textContent = '▸'; }
+        }
+      }
+    });
+  }
+}
+
+function populateParentSelect() {
+  var sel = document.getElementById('cateParent');
+  sel.innerHTML = '<option value="0">顶级分类</option>';
+  cateFlatList.forEach(function(c) {
+    sel.innerHTML += '<option value="' + c.id + '">' + esc(c.name) + ' (层级' + (c.level || 0) + ')</option>';
+  });
+}
+
+function showCateForm() {
+  populateParentSelect();
+  document.getElementById('cateEditId').value = '';
+  document.getElementById('cateModalTitle').textContent = '新增分类';
+  document.getElementById('cateForm').reset();
+  document.getElementById('cateModal').style.display = 'flex';
+}
+
+function editCate(id) {
+  var c = cateFlatList.find(function(item) { return item.id === id; });
+  if (!c) return;
+  populateParentSelect();
+  document.getElementById('cateEditId').value = c.id;
+  document.getElementById('cateModalTitle').textContent = '编辑分类';
+  document.getElementById('cateName').value = c.name || '';
+  document.getElementById('cateParent').value = c.parentId || 0;
+  document.getElementById('cateIcon').value = c.icon || '';
+  document.getElementById('cateSort').value = c.sort || 0;
+  document.getElementById('cateStatus').value = c.status !== undefined ? c.status : 1;
+  document.getElementById('cateModal').style.display = 'flex';
+}
+
+function closeCateModal() { document.getElementById('cateModal').style.display = 'none'; }
+
+document.getElementById('cateForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var parentId = parseInt(document.getElementById('cateParent').value) || 0;
+  var dto = {
+    parentId: parentId || 0,
+    name: document.getElementById('cateName').value.trim(),
+    icon: document.getElementById('cateIcon').value.trim() || null,
+    sort: parseInt(document.getElementById('cateSort').value) || 0,
+    status: parseInt(document.getElementById('cateStatus').value)
+  };
+  var editId = document.getElementById('cateEditId').value;
+  var res;
+  if (editId) {
+    res = await put('/admin/category/' + editId, dto);
+  } else {
+    res = await post('/admin/category', dto);
+  }
+  if (!res) return;
+  if (res.code === 200) {
+    toast(editId ? '分类已更新' : '分类已创建');
+    closeCateModal();
+    loadCateTree();
+  } else {
+    toast(res.msg || '操作失败', 'error');
+  }
+});
+
+async function deleteCate(id) {
+  if (!confirm('确认删除该分类？若有子分类或关联商品将无法删除。')) return;
+  var res = await del('/admin/category/' + id);
+  if (!res) return;
+  if (res.code === 200) { toast('已删除'); loadCateTree(); }
+  else { toast(res.msg || '删除失败', 'error'); }
+}
+
+// ==================== 优惠券 ====================
+async function loadCouponList() {
+  var container = document.getElementById('couponList');
+  container.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+  var res = await get('/admin/coupon');
+  if (!res || res.code !== 200) { container.innerHTML = '<div class="loading">加载失败</div>'; return; }
+  var list = res.data || [];
+  if (!list.length) { container.innerHTML = '<div class="loading">暂无优惠券，点击上方按钮创建</div>'; return; }
+  var html = '<table class="table"><thead><tr><th>ID</th><th>名称</th><th>类型</th><th>面值</th><th>门槛</th><th>发行/已领</th><th>有效期</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(function(cp) {
+    html += '<tr>' +
+      '<td>' + cp.id + '</td>' +
+      '<td>' + esc(cp.name) + '</td>' +
+      '<td>' + (cp.type === 'FULL_REDUCTION' ? '满减' : cp.type === 'DISCOUNT' ? '折扣' : esc(cp.type || '')) + '</td>' +
+      '<td>¥' + (cp.discountValue || 0) + '</td>' +
+      '<td>¥' + (cp.minAmount || 0) + '</td>' +
+      '<td>' + (cp.totalCount || 0) + ' / ' + (cp.receivedCount || 0) + '</td>' +
+      '<td>' + (cp.startTime || '') + ' ~ ' + (cp.endTime || '') + '</td>' +
+      '<td><span class="badge ' + (cp.status === 1 ? 'badge-success' : 'badge-default') + '">' + (cp.status === 1 ? '启用' : '停用') + '</span></td>' +
+      '<td><button class="btn btn-sm" onclick="editCoupon(' + cp.id + ')">编辑</button></td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function showCouponForm() {
+  document.getElementById('couponModalTitle').textContent = '新增优惠券';
+  document.getElementById('couponForm').reset();
+  document.getElementById('cpEditId').value = '';
+  document.getElementById('cpTotal').value = '100';
+  document.getElementById('cpPerUser').value = '1';
+  document.getElementById('cpStatus').value = '1';
+  document.getElementById('couponModal').style.display = 'flex';
+}
+
+function editCoupon(id) {
+  // 需要先加载列表数据。简单方式：再次请求并查找
+  get('/admin/coupon').then(function(res) {
+    if (!res || res.code !== 200) return;
+    var cp = (res.data || []).find(function(c) { return c.id === id; });
+    if (!cp) return;
+    document.getElementById('couponModalTitle').textContent = '编辑优惠券';
+    document.getElementById('cpName').value = cp.name || '';
+    document.getElementById('cpType').value = cp.type || 'FULL_REDUCTION';
+    document.getElementById('cpValue').value = cp.discountValue || '';
+    document.getElementById('cpMinAmount').value = cp.minAmount || 0;
+    document.getElementById('cpTotal').value = cp.totalCount || 0;
+    document.getElementById('cpPerUser').value = cp.perUserLimit || 1;
+    document.getElementById('cpStart').value = cp.startTime ? cp.startTime.substring(0, 16) : '';
+    document.getElementById('cpEnd').value = cp.endTime ? cp.endTime.substring(0, 16) : '';
+    document.getElementById('cpStatus').value = cp.status !== undefined ? cp.status : 1;
+    document.getElementById('cpEditId').value = cp.id;
+    document.getElementById('couponModal').style.display = 'flex';
+  });
+}
+
+function closeCouponModal() { document.getElementById('couponModal').style.display = 'none'; }
+
+document.getElementById('couponForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var dto = {
+    name: document.getElementById('cpName').value.trim(),
+    type: document.getElementById('cpType').value,
+    discountValue: parseFloat(document.getElementById('cpValue').value) || 0,
+    minAmount: parseFloat(document.getElementById('cpMinAmount').value) || 0,
+    totalCount: parseInt(document.getElementById('cpTotal').value) || 0,
+    perUserLimit: parseInt(document.getElementById('cpPerUser').value) || 1,
+    startTime: document.getElementById('cpStart').value ? document.getElementById('cpStart').value + ':00' : null,
+    endTime: document.getElementById('cpEnd').value ? document.getElementById('cpEnd').value + ':00' : null,
+    status: parseInt(document.getElementById('cpStatus').value)
+  };
+  var editId = document.getElementById('cpEditId').value;
+  var res;
+  if (editId) {
+    res = await put('/admin/coupon/' + editId, dto);
+  } else {
+    res = await post('/admin/coupon', dto);
+  }
+  if (!res) return;
+  if (res.code === 200) {
+    toast(editId ? '优惠券已更新' : '优惠券已创建');
+    closeCouponModal();
+    loadCouponList();
+  } else {
+    toast(res.msg || '操作失败', 'error');
+  }
+});
+
+// ==================== 商家申请审核 ====================
+async function loadMerchantApps() {
+  var container = document.getElementById('merchantAppList');
+  container.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+  var status = document.getElementById('maStatusFilter').value;
+  var res = await get('/admin/merchant/applications?status=' + status);
+  if (!res || res.code !== 200) { container.innerHTML = '<div class="loading">加载失败</div>'; return; }
+  var list = res.data || [];
+  if (!list.length) { container.innerHTML = '<div class="loading">暂无' + statusText(status) + '的申请</div>'; return; }
+  var html = '<table class="table"><thead><tr><th>ID</th><th>店铺名称</th><th>简介</th><th>申请人ID</th><th>状态</th><th>申请时间</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(function(a) {
+    html += '<tr>' +
+      '<td>' + a.id + '</td>' +
+      '<td>' + esc(a.shopName) + '</td>' +
+      '<td>' + esc(a.shopDescription || '-') + '</td>' +
+      '<td>' + (a.userId || '-') + '</td>' +
+      '<td><span class="badge ' + statusBadge(a.status) + '">' + statusText(a.status) + '</span></td>' +
+      '<td>' + (a.createTime || '-') + '</td>' +
+      '<td>' + actionBtns(a) + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function statusText(s) { return s === 'PENDING' ? '待审核' : s === 'APPROVED' ? '已通过' : s === 'REJECTED' ? '已拒绝' : s; }
+function statusBadge(s) { return s === 'PENDING' ? 'badge-warning' : s === 'APPROVED' ? 'badge-success' : s === 'REJECTED' ? 'badge-danger' : 'badge-default'; }
+function actionBtns(a) {
+  if (a.status !== 'PENDING') return '<span style="color:#999">—</span>';
+  return '<button class="btn btn-sm btn-success" onclick="reviewApp(' + a.id + ',\'APPROVED\')">通过</button>' +
+         '<button class="btn btn-sm btn-danger" onclick="reviewApp(' + a.id + ',\'REJECTED\')">拒绝</button>';
+}
+
+async function reviewApp(appId, status) {
+  var comment = '';
+  if (status === 'REJECTED') {
+    comment = prompt('请输入拒绝原因（选填）：');
+    if (comment === null) return; // 用户取消
+  } else {
+    if (!confirm('确认通过该商家申请？')) return;
+  }
+  var dto = { applicationId: appId, status: status, comment: comment || '' };
+  var res = await post('/admin/merchant/review', dto);
+  if (!res) return;
+  if (res.code === 200) {
+    toast(status === 'APPROVED' ? '已通过' : '已拒绝');
+    loadMerchantApps();
+  } else {
+    toast(res.msg || '操作失败', 'error');
+  }
+}
+
+function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+// 初始加载
+loadCateTree();
+window._cateLoaded = true;
+</script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>购物车 - 潮汐商城</title>
+<link rel="stylesheet" href="http://localhost:8080/css/style.css">
+<link rel="icon" type="image/png" href="http://localhost:8080/img/logo.png">
+</head>
+<body data-auth="true">
+<div id="navbar"></div>
+<div class="container">
+  <div class="card">
+    <h2>🛒 购物车</h2>
+    <div id="cartList"><div class="loading"><span class="spinner"></span>加载中...</div></div>
+
+    <!-- 收货地址 -->
+    <div id="addressSection" style="display:none;border-top:1px solid #eee;padding-top:16px;margin-top:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <h3 style="margin:0;">📍 收货地址</h3>
+        <a href="http://localhost:8080/address.html" style="font-size:13px;color:var(--primary);">管理地址</a>
+      </div>
+      <div id="addressList"></div>
+      <div id="noAddress" style="display:none;padding:20px;text-align:center;color:#999;">
+        暂无收货地址，<a href="http://localhost:8080/address.html">去添加</a>
+      </div>
+    </div>
+
+    <div id="cartSummary" style="display:none;">
+      <div class="cart-summary" style="border-top:2px solid var(--primary)">
+        <div><label><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 全选</label></div>
+        <div class="total">合计：<span class="amount">¥<span id="totalAmt">0.00</span></span></div>
+        <button class="btn btn-primary" onclick="createOrder()" style="padding:12px 40px;">去结算</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="http://localhost:8080/js/api.js"></script>
+<script src="http://localhost:8080/js/common.js"></script>
+<script>
+var cartItems = [];
+
+async function loadCart() {
+  var res = await get('/user/cart');
+  if (!res || res.code !== 200) { document.getElementById('cartList').innerHTML = '<div class="loading">加载失败</div>'; return; }
+  cartItems = res.data || [];
+  if (!cartItems.length) { document.getElementById('cartList').innerHTML = '<div class="loading">购物车空空如也，<a href="http://localhost:8080/index.html">去逛逛</a></div>'; return; }
+  renderCart();
+}
+
+function renderCart() {
+  var html = '';
+  cartItems.forEach(function(item, i) {
+    html +=
+      '<div class="cart-item">' +
+      '  <input type="checkbox" ' + (item.selected === 1 ? 'checked' : '') + ' onchange="toggleItem(' + i + ')">' +
+      '  <img src="' + (item.skuImage || '') + '" alt="" onerror="this.style.display=\'none\'">' +
+      '  <div class="item-info">' +
+      '    <div class="item-name">' + esc(item.skuName || '商品') + '</div>' +
+      '    <div class="item-spec">' + (item.skuSpec || '') + '</div>' +
+      '    <div class="item-price">¥' + (item.skuPrice || 0) + '</div>' +
+      '  </div>' +
+      '  <div class="quantity-ctrl" style="margin:0;">' +
+      '    <button onclick="changeQty(' + i + ',-1)">-</button>' +
+      '    <input type="number" value="' + item.quantity + '" min="1" style="width:50px;" onchange="setQty(' + i + ',this.value)">' +
+      '    <button onclick="changeQty(' + i + ',1)">+</button>' +
+      '  </div>' +
+      '  <div style="font-weight:700;color:var(--primary);min-width:80px;text-align:right;">¥' + (item.subtotal || (item.skuPrice * item.quantity).toFixed(2)) + '</div>' +
+      '  <button class="btn btn-sm btn-danger" onclick="removeItem(' + i + ')">删除</button>' +
+      '</div>';
+  });
+  document.getElementById('cartList').innerHTML = html;
+  updateSummary();
+}
+
+async function toggleItem(i) {
+  var item = cartItems[i];
+  var newVal = item.selected === 1 ? 0 : 1;
+  await put('/user/cart/' + item.cartId + '/selected?selected=' + newVal);
+  item.selected = newVal;
+  updateSummary();
+}
+
+async function toggleSelectAll() {
+  var checked = document.getElementById('selectAll').checked;
+  await put('/user/cart/select-all?selected=' + (checked ? 1 : 0));
+  cartItems.forEach(function(item) { item.selected = checked ? 1 : 0; });
+  renderCart();
+}
+
+async function changeQty(i, d) {
+  var item = cartItems[i];
+  var newQty = Math.max(1, item.quantity + d);
+  await put('/user/cart/' + item.cartId + '/quantity?quantity=' + newQty);
+  item.quantity = newQty;
+  renderCart();
+}
+
+async function setQty(i, v) {
+  var newQty = Math.max(1, parseInt(v) || 1);
+  var item = cartItems[i];
+  await put('/user/cart/' + item.cartId + '/quantity?quantity=' + newQty);
+  item.quantity = newQty;
+  renderCart();
+}
+
+async function removeItem(i) {
+  if (!confirm('确认移除该商品？')) return;
+  var item = cartItems[i];
+  await del('/user/cart/' + item.cartId);
+  cartItems.splice(i, 1);
+  if (!cartItems.length) { document.getElementById('cartList').innerHTML = '<div class="loading">购物车空空如也，<a href="http://localhost:8080/index.html">去逛逛</a></div>'; document.getElementById('cartSummary').style.display = 'none'; return; }
+  renderCart();
+}
+
+var selectedAddressId = null;
+
+async function loadAddresses() {
+  var res = await get('/address/query');
+  if (!res || res.code !== 200) return;
+  var addresses = res.data || [];
+  var container = document.getElementById('addressList');
+  var noAddr = document.getElementById('noAddress');
+  if (!addresses.length) {
+    noAddr.style.display = 'block';
+    container.innerHTML = '';
+    return;
+  }
+  noAddr.style.display = 'none';
+  // 找默认地址
+  var defaultAddr = null;
+  addresses.forEach(function(a) { if (a.isDefault === 1) defaultAddr = a; });
+  if (!defaultAddr && addresses.length > 0) defaultAddr = addresses[0];
+  if (defaultAddr) selectedAddressId = defaultAddr.id;
+
+  var html = '';
+  addresses.forEach(function(a) {
+    var isSel = a.id === selectedAddressId;
+    html += '<div class="addr-card' + (isSel ? ' selected' : '') + '" onclick="selectAddress(' + a.id + ')" style="display:inline-block;border:2px solid ' + (isSel ? 'var(--primary)' : '#ddd') + ';border-radius:4px;padding:10px 14px;margin:0 8px 8px 0;cursor:pointer;min-width:200px;position:relative;">' +
+      (a.isDefault === 1 ? '<span style="position:absolute;top:0;right:0;background:var(--primary);color:#fff;font-size:11px;padding:2px 6px;border-radius:0 0 0 4px;">默认</span>' : '') +
+      '<div style="font-weight:600;margin-bottom:4px;">' + esc(a.receiverName) + ' ' + esc(a.phone) + '</div>' +
+      '<div style="font-size:13px;color:#666;">' + esc(a.province || '') + ' ' + esc(a.city || '') + ' ' + esc(a.district || '') + ' ' + esc(a.detail || '') + '</div>' +
+      '</div>';
+  });
+  container.innerHTML = html;
+}
+
+function selectAddress(id) {
+  selectedAddressId = id;
+  // 更新选中样式
+  var cards = document.querySelectorAll('#addressList .addr-card');
+  cards.forEach(function(card) { card.style.borderColor = '#ddd'; });
+  var target = cards[0].parentNode.querySelector('[onclick="selectAddress(' + id + ')"]');
+  if (target) target.style.borderColor = 'var(--primary)';
+}
+
+async function createOrder() {
+  var selected = cartItems.filter(function(item) { return item.selected === 1; });
+  if (!selected.length) { toast('请先选择商品', 'error'); return; }
+  if (!selectedAddressId) { toast('请选择收货地址', 'error'); return; }
+
+  // 找到选中的地址
+  var res0 = await get('/address/query');
+  var addr = null;
+  if (res0 && res0.code === 200) {
+    (res0.data || []).forEach(function(a) { if (a.id === selectedAddressId) addr = a; });
+  }
+  if (!addr) { toast('地址信息异常，请刷新', 'error'); return; }
+
+  var addressSnapshot = {
+    receiverName: addr.receiverName,
+    phone: addr.phone,
+    province: addr.province,
+    city: addr.city,
+    district: addr.district,
+    detail: addr.detail
+  };
+  var orderDto = {
+    car: selected.map(function(ci) { return { spuId: ci.spuId, skuId: ci.skuId, quantity: ci.quantity }; }),
+    addressSnapshot: addressSnapshot
+  };
+  var res = await post('/user/order/create', orderDto);
+  if (!res) return;
+  if (res.code === 200) {
+    toast('下单成功！');
+    setTimeout(function() { window.location.href = 'http://localhost:8080/order-list.html'; }, 800);
+  } else {
+    toast(res.msg || '下单失败', 'error');
+  }
+}
+
+function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+function updateSummary() {
+  var selected = cartItems.filter(function(item) { return item.selected === 1; });
+  var total = selected.reduce(function(sum, item) { return sum + (item.subtotal || (item.skuPrice * item.quantity)); }, 0);
+  document.getElementById('totalAmt').textContent = total.toFixed(2);
+  document.getElementById('cartSummary').style.display = 'block';
+  document.getElementById('addressSection').style.display = 'block';
+  document.getElementById('selectAll').checked = selected.length === cartItems.length && cartItems.length > 0;
+}
+
+loadCart();
+loadAddresses();
+</script>
+</body>
+</html>

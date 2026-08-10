@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.example</groupId>
-        <artifactId>hhw-seckill-project</artifactId>
+        <artifactId>hhw-mall-project</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>captcha-spring-boot-starter</artifactId>

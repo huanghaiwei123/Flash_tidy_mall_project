@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品详情 - 潮汐商城</title>
+<link rel="stylesheet" href="http://localhost:8080/css/style.css">
+<link rel="icon" type="image/png" href="http://localhost:8080/img/logo.png">
+</head>
+<body>
+<div id="navbar"></div>
+<div class="container" id="detailContainer">
+  <div class="loading"><span class="spinner"></span>加载中...</div>
+</div>
+<script src="http://localhost:8080/js/api.js"></script>
+<script src="http://localhost:8080/js/common.js"></script>
+<script>
+var spuId = new URLSearchParams(window.location.search).get('id');
+var skuList = [];
+var selectedSku = null;
+var quantity = 1;
+
+async function loadDetail() {
+  if (!spuId) { document.getElementById('detailContainer').innerHTML = '<div class="loading">商品不存在</div>'; return; }
+  var res = await get('/goods/' + spuId);
+  if (!res || res.code !== 200) { document.getElementById('detailContainer').innerHTML = '<div class="loading">' + (res && res.msg || '商品不存在或已下架') + '</div>'; return; }
+  var spu = res.data;
+  skuList = spu.skuList || [];
+  if (skuList.length > 0) selectedSku = skuList[0];
+  renderDetail(spu);
+}
+
+function renderDetail(spu) {
+  var container = document.getElementById('detailContainer');
+  var skuHtml = '';
+  if (skuList.length) {
+    skuList.forEach(function(sku, i) {
+      skuHtml +=
+        '<div class="sku-item ' + (i === 0 ? 'active' : '') + '" onclick="selectSku(' + i + ')" id="sku_' + i + '">' +
+        esc(sku.name) + '<span class="sku-price">¥' + (sku.price || 0) + '</span>' +
+        '</div>';
+    });
+  }
+  container.innerHTML =
+    '<div class="detail-layout">' +
+    '  <img class="detail-img" src="' + (spu.mainImage || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22400%22><rect fill=%22%23eee%22 width=%22400%22 height=%22400%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23ccc%22 font-size=%2240%22>暂无图片</text></svg>') + '" alt="' + spu.name + '">' +
+    '  <div class="detail-info">' +
+    '    <h1>' + esc(spu.name) + '</h1>' +
+    '    <div class="detail-price">¥<span id="curPrice">' + (skuList.length ? (skuList[0].price || 0) : '--') + '</span>' +
+    (skuList.length && skuList[0].originalPrice ? '<span class="detail-original">¥' + skuList[0].originalPrice + '</span>' : '') +
+    '    </div>' +
+    (spu.brand ? '<p style="color:#999;font-size:14px;">品牌：' + esc(spu.brand) + '</p>' : '') +
+    (spu.categoryName ? '<p style="color:#999;font-size:14px;">分类：' + esc(spu.categoryName) + '</p>' : '') +
+    '<p style="color:#999;font-size:14px;">已售 ' + (spu.sales || 0) + ' 件</p>' +
+    (skuList.length ? '<h3 style="margin-top:16px;">规格选择</h3><div class="sku-list">' + skuHtml + '</div>' : '') +
+    (skuList.length ? '<div class="quantity-ctrl"><span>数量：</span><button onclick="changeQty(-1)">-</button><input type="number" id="qty" value="1" min="1" onchange="onQtyChange()"><button onclick="changeQty(1)">+</button></div>' : '') +
+    '    <button class="btn btn-primary" style="margin-top:20px;padding:12px 40px;" onclick="addToCart()" ' + (!skuList.length ? 'disabled' : '') + '>🛒 加入购物车</button>' +
+    (spu.description ? '<p style="margin-top:16px;color:#666;">' + esc(spu.description) + '</p>' : '') +
+    '  </div>' +
+    '</div>' +
+    (spu.detail ? '<div class="card" style="margin-top:20px;"><h2>商品详情</h2><div>' + spu.detail + '</div></div>' : '');
+}
+
+function selectSku(idx) {
+  selectedSku = skuList[idx];
+  document.querySelectorAll('.sku-item').forEach(function(el,i) { el.classList.toggle('active', i === idx); });
+  document.getElementById('curPrice').textContent = selectedSku.price || 0;
+  var origEl = document.querySelector('.detail-original');
+  if (origEl) origEl.textContent = selectedSku.originalPrice ? '¥' + selectedSku.originalPrice : '';
+}
+
+function changeQty(d) {
+  quantity = Math.max(1, quantity + d);
+  document.getElementById('qty').value = quantity;
+}
+function onQtyChange() {
+  var v = parseInt(document.getElementById('qty').value) || 1;
+  quantity = Math.max(1, v);
+}
+
+async function addToCart() {
+  if (!isLogin()) { window.location.href = 'http://localhost:8080/login.html'; return; }
+  if (!selectedSku) { toast('请选择规格', 'error'); return; }
+  var res = await post('/user/cart?spuId=' + spuId + '&skuId=' + selectedSku.id + '&quantity=' + quantity);
+  if (!res) return;
+  if (res.code === 200) {
+    toast('已加入购物车');
+  } else {
+    toast(res.msg || '操作失败', 'error');
+  }
+}
+
+function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+loadDetail();
+</script>
+</body>
+</html>

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商家中心 - 潮汐商城</title>
+<link rel="stylesheet" href="http://localhost:8080/css/style.css">
+<link rel="icon" type="image/png" href="http://localhost:8080/img/logo.png">
+</head>
+<body data-auth="true">
+<div id="navbar"></div>
+<div class="container">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h1 style="margin:0;">🏪 商家中心</h1>
+    <button class="btn btn-sm" onclick="switchToUser()">🔄 切换回普通用户</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('spu')">📦 商品管理 (SPU)</button>
+    <button class="tab" onclick="switchTab('sku')">📋 规格管理 (SKU)</button>
+    <button class="tab" onclick="switchTab('orders')">📑 订单管理</button>
+  </div>
+
+  <!-- ==================== SPU 管理 ==================== -->
+  <div class="tab-panel" id="panel-spu">
+    <div style="margin-bottom:16px;display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="showSpuForm()">+ 添加商品</button>
+      <button class="btn" onclick="loadSpuList()">🔄 刷新</button>
+    </div>
+    <div id="spuList"><div class="loading"><span class="spinner"></span>加载中...</div></div>
+  </div>
+
+  <!-- ==================== SKU 管理 ==================== -->
+  <div class="tab-panel" id="panel-sku" style="display:none;">
+    <div style="margin-bottom:16px;">
+      <label>选择 SPU：</label>
+      <select id="skuSpuSelect" onchange="onSpuSelect()" style="width:300px;">
+        <option value="">-- 请选择商品 --</option>
+      </select>
+      <button class="btn btn-primary" onclick="showSkuForm()" style="margin-left:8px;" disabled id="addSkuBtn">+ 添加规格</button>
+    </div>
+    <div id="skuList"><div class="loading">请先选择一个商品</div></div>
+  </div>
+
+  <!-- ==================== 订单管理 ==================== -->
+  <div class="tab-panel" id="panel-orders" style="display:none;">
+    <div id="merchantOrders"><div class="loading">点击上方标签加载</div></div>
+  </div>
+</div>
+
+<!-- SPU 弹窗 -->
+<div class="modal" id="spuModal" style="display:none;">
+  <div class="modal-overlay" onclick="closeSpuModal()"></div>
+  <div class="modal-box" style="max-width:600px;">
+    <h3 id="spuModalTitle">添加商品</h3>
+    <form id="spuForm">
+      <div class="form-group"><label>商品名称 *</label><input type="text" id="spuName" required></div>
+      <div class="form-group"><label>描述</label><textarea id="spuDesc" rows="2"></textarea></div>
+      <div class="form-group"><label>分类名称 *</label><input type="text" id="spuCategory" required placeholder="如：手机数码"></div>
+      <div class="form-group"><label>品牌</label><input type="text" id="spuBrand"></div>
+      <div class="form-group"><label>主图URL</label><input type="text" id="spuImage"></div>
+      <div class="form-group"><label>详情（HTML）</label><textarea id="spuDetail" rows="3"></textarea></div>
+      <input type="hidden" id="spuEditId">
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn" onclick="closeSpuModal()">取消</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- SKU 弹窗 -->
+<div class="modal" id="skuModal" style="display:none;">
+  <div class="modal-overlay" onclick="closeSkuModal()"></div>
+  <div class="modal-box" style="max-width:600px;">
+    <h3 id="skuModalTitle">添加规格</h3>
+    <form id="skuForm">
+      <div class="form-group"><label>规格名称 *</label><input type="text" id="skuName" required></div>
+      <div class="form-group"><label>规格描述</label><input type="text" id="skuSpec" placeholder="如：黑色 / 128GB"></div>
+      <div class="form-row">
+        <div class="form-group"><label>价格 *</label><input type="number" id="skuPrice" step="0.01" required></div>
+        <div class="form-group"><label>原价</label><input type="number" id="skuOrigPrice" step="0.01"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>库存 *</label><input type="number" id="skuStock" required></div>
+        <div class="form-group"><label>活动库存</label><input type="number" id="skuPromStock" value="0"></div>
+      </div>
+      <div class="form-group"><label>图片URL</label><input type="text" id="skuImage"></div>
+      <div class="form-row">
+        <div class="form-group"><label>排序</label><input type="number" id="skuSort" value="0"></div>
+        <div class="form-group"><label>状态</label>
+          <select id="skuStatus"><option value="1">上架</option><option value="0">下架</option></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label><input type="checkbox" id="skuSeckill"> 参与秒杀</label>
+      </div>
+      <div id="seckillFields" style="display:none;">
+        <div class="form-row">
+          <div class="form-group"><label>秒杀价</label><input type="number" id="skuSeckillPrice" step="0.01"></div>
+          <div class="form-group"><label>秒杀开始</label><input type="datetime-local" id="skuSeckillStart"></div>
+          <div class="form-group"><label>秒杀结束</label><input type="datetime-local" id="skuSeckillEnd"></div>
+        </div>
+      </div>
+      <input type="hidden" id="skuEditId">
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn" onclick="closeSkuModal()">取消</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="http://localhost:8080/js/api.js"></script>
+<script src="http://localhost:8080/js/common.js"></script>
+<script>
+// ==================== Tab 切换 ====================
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.style.display = 'none'; });
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('panel-' + name).style.display = 'block';
+  event.target.classList.add('active');
+  if (name === 'spu' && !window._spuLoaded) { window._spuLoaded = true; loadSpuList(); }
+  if (name === 'sku' && !window._skuLoaded) { window._skuLoaded = true; loadSpuOptions(); }
+  if (name === 'orders' && !window._ordersLoaded) { window._ordersLoaded = true; loadMerchantOrders(); }
+}
+
+// ==================== SPU ====================
+var spuList = [];
+
+async function loadSpuList() {
+  var container = document.getElementById('spuList');
+  container.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+  // 商家 SPU 列表需要 merchantId 参数，从登录用户获取。这里用简单方式：先尝试不带参数
+  var res = await get('/merchant/spu/query', { merchantId: localStorage.getItem('userId') || 1 });
+  if (!res || res.code !== 200) { container.innerHTML = '<div class="loading">加载失败：' + (res && res.msg || '') + '</div>'; return; }
+  spuList = res.data || [];
+  if (!spuList.length) { container.innerHTML = '<div class="loading">暂无商品，点击上方按钮添加</div>'; return; }
+  var html = '<table class="table"><thead><tr><th>ID</th><th>名称</th><th>分类</th><th>品牌</th><th>销量</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+  spuList.forEach(function(spu) {
+    html += '<tr>' +
+      '<td>' + spu.id + '</td>' +
+      '<td>' + esc(spu.name) + '</td>' +
+      '<td>' + esc(spu.categoryName || '') + '</td>' +
+      '<td>' + esc(spu.brand || '') + '</td>' +
+      '<td>' + (spu.sales || 0) + '</td>' +
+      '<td><span class="badge ' + (spu.status === 1 ? 'badge-success' : 'badge-default') + '">' + (spu.status === 1 ? '上架' : '下架') + '</span></td>' +
+      '<td>' +
+      '  <button class="btn btn-sm" onclick="editSpu(' + spu.id + ')">编辑</button>' +
+      '  <button class="btn btn-sm ' + (spu.status === 1 ? 'btn-danger' : 'btn-success') + '" onclick="toggleSpu(' + spu.id + ',' + spu.status + ')">' + (spu.status === 1 ? '下架' : '上架') + '</button>' +
+      '</td></tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function showSpuForm() {
+  document.getElementById('spuModalTitle').textContent = '添加商品';
+  document.getElementById('spuForm').reset();
+  document.getElementById('spuEditId').value = '';
+  document.getElementById('spuModal').style.display = 'flex';
+}
+
+function editSpu(id) {
+  var spu = spuList.find(function(s) { return s.id === id; });
+  if (!spu) return;
+  document.getElementById('spuModalTitle').textContent = '编辑商品';
+  document.getElementById('spuName').value = spu.name || '';
+  document.getElementById('spuDesc').value = spu.description || '';
+  document.getElementById('spuCategory').value = spu.categoryName || '';
+  document.getElementById('spuBrand').value = spu.brand || '';
+  document.getElementById('spuImage').value = spu.mainImage || '';
+  document.getElementById('spuDetail').value = spu.detail || '';
+  document.getElementById('spuEditId').value = spu.id;
+  document.getElementById('spuModal').style.display = 'flex';
+}
+
+function closeSpuModal() { document.getElementById('spuModal').style.display = 'none'; }
+
+document.getElementById('spuForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var dto = {
+    name: document.getElementById('spuName').value.trim(),
+    description: document.getElementById('spuDesc').value.trim(),
+    categoryName: document.getElementById('spuCategory').value.trim(),
+    brand: document.getElementById('spuBrand').value.trim(),
+    mainImage: document.getElementById('spuImage').value.trim(),
+    detail: document.getElementById('spuDetail').value.trim()
+  };
+  var editId = document.getElementById('spuEditId').value;
+  var res;
+  if (editId) {
+    res = await put('/merchant/spu/' + editId, dto);
+  } else {
+    res = await post('/merchant/spu', dto);
+  }
+  if (!res) return;
+  if (res.code === 200) {
+    toast(editId ? '商品已更新' : '商品已添加');
+    closeSpuModal();
+    loadSpuList();
+  } else {
+    toast(res.msg || '操作失败', 'error');
+  }
+});
+
+async function toggleSpu(id, curStatus) {
+  var newStatus = curStatus === 1 ? 0 : 1;
+  var res = await put('/merchant/spu/' + id + '/status?status=' + newStatus);
+  if (!res) return;
+  if (res.code === 200) { toast(newStatus === 1 ? '已上架' : '已下架'); loadSpuList(); }
+  else { toast(res.msg || '操作失败', 'error'); }
+}
+
+// ==================== SKU ====================
+var skuSpuId = null;
+
+async function loadSpuOptions() {
+  var sel = document.getElementById('skuSpuSelect');
+  // 重新加载 SPU 列表来填充下拉
+  var res = await get('/merchant/spu/query', { merchantId: localStorage.getItem('userId') || 1 });
+  if (!res || res.code !== 200) return;
+  var list = res.data || [];
+  sel.innerHTML = '<option value="">-- 请选择商品 --</option>';
+  list.forEach(function(spu) {
+    sel.innerHTML += '<option value="' + spu.id + '">' + esc(spu.name) + ' (ID:' + spu.id + ')</option>';
+  });
+}
+
+function onSpuSelect() {
+  skuSpuId = document.getElementById('skuSpuSelect').value;
+  document.getElementById('addSkuBtn').disabled = !skuSpuId;
+  if (skuSpuId) loadSkuList();
+  else document.getElementById('skuList').innerHTML = '<div class="loading">请先选择一个商品</div>';
+}
+
+async function loadSkuList() {
+  if (!skuSpuId) return;
+  var container = document.getElementById('skuList');
+  container.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+  var res = await get('/sku/spu/' + skuSpuId);
+  if (!res || res.code !== 200) { container.innerHTML = '<div class="loading">加载失败</div>'; return; }
+  var list = res.data || [];
+  if (!list.length) { container.innerHTML = '<div class="loading">暂无规格，点击上方按钮添加</div>'; return; }
+  var html = '<table class="table"><thead><tr><th>ID</th><th>名称</th><th>规格</th><th>价格</th><th>库存</th><th>秒杀</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(function(sku) {
+    html += '<tr>' +
+      '<td>' + sku.id + '</td>' +
+      '<td>' + esc(sku.name) + '</td>' +
+      '<td>' + esc(sku.spec || '') + '</td>' +
+      '<td>¥' + (sku.price || 0) + '</td>' +
+      '<td>' + (sku.stock || 0) + '</td>' +
+      '<td>' + (sku.isSeckill === 1 ? '⚡是' : '否') + '</td>' +
+      '<td><span class="badge ' + (sku.status === 1 ? 'badge-success' : 'badge-default') + '">' + (sku.status === 1 ? '上架' : '下架') + '</span></td>' +
+      '<td>' +
+      '  <button class="btn btn-sm" onclick="editSku(' + sku.id + ')">编辑</button>' +
+      '  <button class="btn btn-sm btn-danger" onclick="deleteSku(' + sku.id + ')">删除</button>' +
+      '  <button class="btn btn-sm" onclick="toggleSku(' + sku.id + ',' + sku.status + ')">' + (sku.status === 1 ? '下架' : '上架') + '</button>' +
+      '</td></tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function showSkuForm() {
+  if (!skuSpuId) return;
+  document.getElementById('skuModalTitle').textContent = '添加规格';
+  document.getElementById('skuForm').reset();
+  document.getElementById('skuEditId').value = '';
+  document.getElementById('skuModal').style.display = 'flex';
+}
+
+async function editSku(id) {
+  var res = await get('/sku/' + id);
+  if (!res || res.code !== 200) { toast('获取SKU详情失败', 'error'); return; }
+  var sku = res.data;
+  document.getElementById('skuModalTitle').textContent = '编辑规格';
+  document.getElementById('skuName').value = sku.name || '';
+  document.getElementById('skuSpec').value = sku.spec || '';
+  document.getElementById('skuPrice').value = sku.price || '';
+  document.getElementById('skuOrigPrice').value = sku.originalPrice || '';
+  document.getElementById('skuStock').value = sku.stock || 0;
+  document.getElementById('skuPromStock').value = sku.promotionStock || 0;
+  document.getElementById('skuImage').value = sku.image || '';
+  document.getElementById('skuSort').value = sku.sort || 0;
+  document.getElementById('skuStatus').value = sku.status || 1;
+  document.getElementById('skuSeckill').checked = sku.isSeckill === 1;
+  document.getElementById('seckillFields').style.display = sku.isSeckill === 1 ? 'block' : 'none';
+  if (sku.isSeckill === 1) {
+    document.getElementById('skuSeckillPrice').value = sku.seckillPrice || '';
+    document.getElementById('skuSeckillStart').value = sku.seckillStartTime ? sku.seckillStartTime.substring(0, 16) : '';
+    document.getElementById('skuSeckillEnd').value = sku.seckillEndTime ? sku.seckillEndTime.substring(0, 16) : '';
+  }
+  document.getElementById('skuEditId').value = sku.id;
+  document.getElementById('skuModal').style.display = 'flex';
+}
+
+function closeSkuModal() { document.getElementById('skuModal').style.display = 'none'; }
+
+document.getElementById('skuSeckill').addEventListener('change', function() {
+  document.getElementById('seckillFields').style.display = this.checked ? 'block' : 'none';
+});
+
+document.getElementById('skuForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var dto = {
+    spuId: parseInt(skuSpuId),
+    name: document.getElementById('skuName').value.trim(),
+    spec: document.getElementById('skuSpec').value.trim(),
+    price: parseFloat(document.getElementById('skuPrice').value) || 0,
+    originalPrice: parseFloat(document.getElementById('skuOrigPrice').value) || null,
+    image: document.getElementById('skuImage').value.trim() || null,
+    stock: parseInt(document.getElementById('skuStock').value) || 0,
+    promotionStock: parseInt(document.getElementById('skuPromStock').value) || 0,
+    sort: parseInt(document.getElementById('skuSort').value) || 0,
+    status: parseInt(document.getElementById('skuStatus').value),
+    isSeckill: document.getElementById('skuSeckill').checked ? 1 : 0
+  };
+  if (dto.isSeckill === 1) {
+    dto.seckillPrice = parseFloat(document.getElementById('skuSeckillPrice').value) || 0;
+    dto.seckillStartTime = document.getElementById('skuSeckillStart').value ? document.getElementById('skuSeckillStart').value + ':00' : null;
+    dto.seckillEndTime = document.getElementById('skuSeckillEnd').value ? document.getElementById('skuSeckillEnd').value + ':00' : null;
+  }
+  var editId = document.getElementById('skuEditId').value;
+  var res;
+  if (editId) {
+    res = await put('/sku/' + editId, dto);
+  } else {
+    res = await post('/sku', dto);
+  }
+  if (!res) return;
+  if (res.code === 200) {
+    toast(editId ? '规格已更新' : '规格已添加');
+    closeSkuModal();
+    loadSkuList();
+  } else {
+    toast(res.msg || '操作失败', 'error');
+  }
+});
+
+async function deleteSku(id) {
+  if (!confirm('确认删除该规格？')) return;
+  var res = await del('/sku/' + id);
+  if (!res) return;
+  if (res.code === 200) { toast('已删除'); loadSkuList(); }
+  else { toast(res.msg || '删除失败', 'error'); }
+}
+
+async function toggleSku(id, curStatus) {
+  var newStatus = curStatus === 1 ? 0 : 1;
+  var res = await put('/sku/' + id + '/status?status=' + newStatus);
+  if (!res) return;
+  if (res.code === 200) { toast(newStatus === 1 ? '已上架' : '已下架'); loadSkuList(); }
+  else { toast(res.msg || '操作失败', 'error'); }
+}
+
+// ==================== 订单 ====================
+async function loadMerchantOrders() {
+  var container = document.getElementById('merchantOrders');
+  container.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+  var res = await get('/merchant/order/queryList');
+  if (!res || res.code !== 200) { container.innerHTML = '<div class="loading">加载失败</div>'; return; }
+  var list = res.data || [];
+  if (!list.length) { container.innerHTML = '<div class="loading">暂无订单</div>'; return; }
+  var html = '<table class="table"><thead><tr><th>订单号</th><th>类型</th><th>金额</th><th>状态</th><th>时间</th></tr></thead><tbody>';
+  list.forEach(function(o) {
+    var stMap = { 'PENDING_PAY':'待支付','PAID':'已支付','SHIPPED':'已发货','RECEIVED':'已收货','COMPLETED':'已完成','CANCELLED':'已取消','REFUNDING':'退款中','REFUNDED':'已退款' };
+    html += '<tr>' +
+      '<td>' + esc(o.orderNo) + '</td>' +
+      '<td>' + (o.orderType === 'SECKILL' ? '⚡秒杀' : '🛒普通') + '</td>' +
+      '<td>¥' + (o.payAmount || 0) + '</td>' +
+      '<td>' + (stMap[o.status] || o.status) + '</td>' +
+      '<td>' + (o.createTime || '') + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+// ==================== 切回普通用户 ====================
+function switchToUser() {
+  window.location.href = 'http://localhost:8080/user-center.html';
+}
+
+// 初始加载 SPU
+loadSpuList();
+window._spuLoaded = true;
+</script>
+</body>
+</html>

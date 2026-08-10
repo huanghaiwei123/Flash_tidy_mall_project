@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>潮汐商城 - 首页</title>
+<link rel="stylesheet" href="http://localhost:8080/css/style.css">
+<link rel="icon" type="image/png" href="http://localhost:8080/img/logo.png">
+</head>
+<body>
+<div id="navbar"></div>
+
+<!-- 潮汐商城风格：分类导航条 -->
+<div class="fm-navbar">
+  <div class="fm-navbar-inner">
+    <div class="fm-all-cate-btn" onclick="toggleCatePanel()">全部商品分类 <span class="cate-arrow">▾</span></div>
+    <div class="fm-all-cate-panel" id="catePanel"></div>
+    <div class="fm-cate-links" id="cateLinks"></div>
+  </div>
+</div>
+
+<div class="fm-container">
+  <div class="container">
+    <!-- 首页 Banner -->
+    <div class="fm-banner">潮汐商城 · 好物低价</div>
+
+    <!-- 商品区 -->
+    <div class="fm-section-title">新品好物<span class="sub">为您精选</span></div>
+    <div id="goodsArea"></div>
+    <div id="pagination" class="pagination"></div>
+  </div>
+</div>
+
+<script src="http://localhost:8080/js/api.js"></script>
+<script src="http://localhost:8080/js/common.js"></script>
+<script>
+var curCategoryId = 0;
+var curPage = 1;
+var curKeyword = '';
+var catePanelOpen = false;
+
+// ====== 加载分类树 ======
+async function loadCategories() {
+  var res = await get('/goods/categories');
+  if (!res || res.code !== 200) return;
+  var tree = res.data || [];
+  renderCatePanel(tree);
+  renderCateLinks(tree);
+}
+
+// ====== 渲染"全部商品分类"下拉面板 ======
+function renderCatePanel(nodes) {
+  var panel = document.getElementById('catePanel');
+  if (!nodes || !nodes.length) { panel.innerHTML = '<div class="loading">暂无分类</div>'; return; }
+  var html = '';
+  nodes.forEach(function(node) {
+    var arrow = node.children && node.children.length ? '<span class="arrow">▶</span>' : '';
+    html += '<button class="fm-cate-item" onclick="selectCategory(' + node.id + ')">' + esc(node.name) + arrow + '</button>';
+  });
+  panel.innerHTML = html;
+}
+
+// ====== 渲染横向分类链接 ======
+function renderCateLinks(nodes) {
+  var links = document.getElementById('cateLinks');
+  if (!nodes || !nodes.length) return;
+  var html = '<a href="javascript:void(0)" onclick="selectCategory(0)">首页</a>';
+  nodes.forEach(function(node) {
+    html += '<a href="javascript:void(0)" onclick="selectCategory(' + node.id + ')">' + esc(node.name) + '</a>';
+  });
+  links.innerHTML = html;
+}
+
+function toggleCatePanel() {
+  var panel = document.getElementById('catePanel');
+  catePanelOpen = !catePanelOpen;
+  panel.classList.toggle('show', catePanelOpen);
+}
+
+function selectCategory(id) {
+  curCategoryId = id;
+  curPage = 1;
+  // 点"首页"（id=0）时清空搜索关键词，并去掉地址栏的 ?keyword= 参数，避免刷新后仍被过滤
+  if (id === 0 && curKeyword) {
+    curKeyword = '';
+    var kwInput = document.getElementById('globalKeyword');
+    if (kwInput) kwInput.value = '';
+    if (window.history && window.history.replaceState) {
+      history.replaceState(null, '', window.location.pathname);
+    }
+  }
+  document.getElementById('catePanel').classList.remove('show');
+  catePanelOpen = false;
+  loadGoods();
+  window.scrollTo(0, 160);
+}
+
+// ====== 加载商品 ======
+async function loadGoods() {
+  var area = document.getElementById('goodsArea');
+  area.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+  var res = await get('/goods/list', {
+    categoryId: curCategoryId || undefined,
+    keyword: curKeyword || undefined,
+    page: curPage,
+    size: 20
+  });
+  if (!res) { area.innerHTML = '<div class="loading">加载失败</div>'; return; }
+  if (res.code !== 200) { area.innerHTML = '<div class="loading">' + (res.msg || '暂无数据') + '</div>'; return; }
+  var data = res.data;
+  var list = data.records || [];
+  if (!list.length) { area.innerHTML = '<div class="loading">暂无商品</div>'; renderPagination(0); return; }
+  var html = '<div class="fm-goods-grid">';
+  list.forEach(function(g) {
+    html +=
+      '<a href="http://localhost:8080/goods-detail.html?id=' + g.id + '" class="fm-goods-card">' +
+      '  <img src="' + (g.mainImage || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23eee%22 width=%22200%22 height=%22200%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23ccc%22 font-size=%2230%22>暂无图片</text></svg>') + '" alt="' + esc(g.name) + '">' +
+      '  <div class="info">' +
+      '    <div class="name">' + esc(g.name) + '</div>' +
+      '    <div class="price"><span class="yen">¥</span>' + (g.minPrice || 0) + '</div>' +
+      '    <div class="meta">' +
+      '      <span>' + esc(g.brand || '') + ' · 已售' + (g.sales || 0) + '</span>' +
+      (g.skuCount ? '<span class="tag">' + g.skuCount + '个规格</span>' : '') +
+      '    </div>' +
+      '  </div>' +
+      '</a>';
+  });
+  html += '</div>';
+  area.innerHTML = html;
+  renderPagination(data.total || 0);
+}
+
+function renderPagination(total) {
+  var pg = document.getElementById('pagination');
+  var totalPages = Math.ceil(total / 20);
+  if (totalPages <= 1) { pg.innerHTML = ''; return; }
+  var html = '';
+  html += '<button ' + (curPage <= 1 ? 'disabled' : '') + ' onclick="goPage(' + (curPage - 1) + ')">上一页</button>';
+  for (var i = 1; i <= totalPages && i <= 10; i++) {
+    html += '<button class="' + (i === curPage ? 'active' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>';
+  }
+  html += '<button ' + (curPage >= totalPages ? 'disabled' : '') + ' onclick="goPage(' + (curPage + 1) + ')">下一页</button>';
+  pg.innerHTML = html;
+}
+
+function goPage(p) { curPage = p; loadGoods(); window.scrollTo(0, 160); }
+
+// ====== 读取 URL 关键词参数（来自全局搜索跳转） ======
+function getUrlParam(name) {
+  var m = new RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+// 初始化
+var initKw = getUrlParam('keyword');
+if (initKw) {
+  curKeyword = initKw;
+  var globalKwInput = document.getElementById('globalKeyword');
+  if (globalKwInput) globalKwInput.value = initKw;
+}
+loadCategories();
+loadGoods();
+</script>
+</body>
+</html>

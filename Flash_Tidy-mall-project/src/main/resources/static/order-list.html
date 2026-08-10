@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的订单 - 潮汐商城</title>
+<link rel="stylesheet" href="http://localhost:8080/css/style.css">
+<link rel="icon" type="image/png" href="http://localhost:8080/img/logo.png">
+</head>
+<body data-auth="true">
+<div id="navbar"></div>
+<div class="container">
+  <div class="card">
+    <h2>📋 我的订单</h2>
+    <div id="orderList"><div class="loading"><span class="spinner"></span>加载中...</div></div>
+  </div>
+</div>
+<script src="http://localhost:8080/js/api.js"></script>
+<script src="http://localhost:8080/js/common.js"></script>
+<script>
+var orders = [];
+
+async function loadOrders() {
+  var res = await get('/user/order/queryList');
+  if (!res || res.code !== 200) { document.getElementById('orderList').innerHTML = '<div class="loading">加载失败</div>'; return; }
+  orders = res.data || [];
+  if (!orders.length) { document.getElementById('orderList').innerHTML = '<div class="loading">暂无订单，<a href="http://localhost:8080/index.html">去逛逛</a></div>'; return; }
+  renderOrders();
+}
+
+function renderOrders() {
+  var html = '';
+  orders.forEach(function(order) {
+    var addr = order.addressSnapshot;
+    var addrStr = '';
+    if (typeof addr === 'object' && addr) {
+      addrStr = esc(addr.name || '') + ' ' + esc(addr.phone || '') + ' ' + esc(addr.address || '');
+    } else if (typeof addr === 'string') {
+      addrStr = esc(addr);
+    }
+    var statusMap = {
+      'PENDING_PAY': { cls: 'badge-warning', txt: '待支付' },
+      'PAID':        { cls: 'badge-info',    txt: '已支付' },
+      'SHIPPED':     { cls: 'badge-primary', txt: '已发货' },
+      'RECEIVED':    { cls: 'badge-success', txt: '已收货' },
+      'COMPLETED':   { cls: 'badge-success', txt: '已完成' },
+      'CANCELLED':   { cls: 'badge-default', txt: '已取消' },
+      'REFUNDING':   { cls: 'badge-warning', txt: '退款中' },
+      'REFUNDED':    { cls: 'badge-default', txt: '已退款' }
+    };
+    var st = statusMap[order.status] || { cls: 'badge-default', txt: order.status || '未知' };
+
+    html +=
+      '<div class="order-card">' +
+      '  <div class="order-header">' +
+      '    <div><strong>订单号：</strong>' + esc(order.orderNo) + '</div>' +
+      '    <div><span class="badge ' + st.cls + '">' + st.txt + '</span></div>' +
+      '  </div>' +
+      '  <div class="order-body">' +
+      '    <div class="order-row"><span>订单类型：</span>' + (order.orderType === 'SECKILL' ? '⚡秒杀' : '🛒普通') + '</div>' +
+      '    <div class="order-row"><span>商品金额：</span>¥' + (order.totalAmount || 0) + '</div>' +
+      '    <div class="order-row"><span>优惠金额：</span>-¥' + (order.discountAmount || 0) + '</div>' +
+      '    <div class="order-row"><span>实付金额：</span><strong style="color:var(--primary);">¥' + (order.payAmount || 0) + '</strong></div>' +
+      '    <div class="order-row"><span>收货信息：</span>' + addrStr + '</div>' +
+      '    <div class="order-row"><span>下单时间：</span>' + (order.createTime || '') + '</div>' +
+      '  </div>' +
+      '  <div class="order-footer">' +
+      '    <button class="btn btn-sm" onclick="viewDetail(\'' + esc(order.orderNo) + '\')">查看详情</button>' +
+      (order.status === 'PENDING_PAY' ? '<button class="btn btn-sm btn-danger" onclick="cancelOrder(\'' + esc(order.orderNo) + '\')">取消订单</button>' : '') +
+      '  </div>' +
+      '</div>';
+  });
+  document.getElementById('orderList').innerHTML = html;
+}
+
+async function viewDetail(orderNo) {
+  var res = await get('/user/order/query', { orderNo: orderNo });
+  if (!res || res.code !== 200) { toast(res && res.msg || '查询失败', 'error'); return; }
+  toast('订单详情功能完善中');
+}
+
+async function cancelOrder(orderNo) {
+  if (!confirm('确认取消订单 ' + orderNo + '？')) return;
+  var res = await post('/user/order/delete/' + orderNo);
+  if (!res) return;
+  if (res.code === 200) {
+    toast('订单已取消');
+    loadOrders();
+  } else {
+    toast(res.msg || '取消失败', 'error');
+  }
+}
+
+function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+loadOrders();
+</script>
+</body>
+</html>

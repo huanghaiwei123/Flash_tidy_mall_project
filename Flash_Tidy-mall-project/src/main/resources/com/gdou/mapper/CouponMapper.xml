@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gdou.mapper.CouponMapper">
+
+    <resultMap id="BaseResultMap" type="com.gdou.pojo.entity.Coupon">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="type" column="type"/>
+        <result property="discountValue" column="discount_value"/>
+        <result property="minAmount" column="min_amount"/>
+        <result property="totalCount" column="total_count"/>
+        <result property="issuedCount" column="issued_count"/>
+        <result property="perUserLimit" column="per_user_limit"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,name,type,discount_value,min_amount,total_count,issued_count,
+        per_user_limit,start_time,end_time,status,create_time,update_time
+    </sql>
+</mapper>

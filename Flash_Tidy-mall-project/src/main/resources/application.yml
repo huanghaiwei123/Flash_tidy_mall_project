@@ -1,0 +1,68 @@
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-stacktrace: always
+
+spring:
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/flash_mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+  redis:
+    cluster:
+      nodes: ${REDIS_CLUSTER_NODES:192.168.147.131:7000,192.168.147.131:7001,192.168.147.131:7002,192.168.147.131:7003,192.168.147.131:7004,192.168.147.131:7005}
+    lettuce:
+      pool:
+        max-active: 200
+        max-idle: 50
+        min-idle: 10
+        max-wait: 3000ms
+  rabbitmq:
+    host: 192.168.147.131
+    port: 5672
+    username: guess
+    password: guess
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        prefetch: 50
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000ms
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT
+jwt:
+  secret: your-jwt-secret-key-32-long-2026
+  expiration: 7200000
+
+# 支付宝沙箱
+alipay:
+  app-id: ${ALIPAY_APP_ID:your-app-id}
+  private-key: ${ALIPAY_PRIVATE_KEY:your-private-key}
+  alipay-public-key: ${ALIPAY_PUBLIC_KEY:your-alipay-public-key}
+  gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
+  notify-url: ${ALIPAY_NOTIFY_URL:http://localhost:8080/hhw/pay/notify}
+  return-url: ${ALIPAY_RETURN_URL:http://localhost:8080/hhw/pay/return}
+
+# 日志
+logging:
+  level:
+    com.gdou: debug
