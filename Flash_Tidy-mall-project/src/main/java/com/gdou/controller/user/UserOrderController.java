@@ -22,7 +22,6 @@ public class UserOrderController {
     @GetMapping("/order/query")
     public Result orderQuery(@RequestParam String orderNo) {
         Long userId = UserHolder.get();
-        log.info("用户{}正在查询编号为{}的订单",userId,orderNo);
         return orderService.orderQueryByUser(userId,orderNo);
     }
 
@@ -38,6 +37,11 @@ public class UserOrderController {
         return orderService.orderQueryListByUser(userId);
     }
 
+    /**
+     * 用户普通下单
+     * @param orderDto
+     * @return
+     */
     @PostMapping("/order/create")
     public Result orderCreate(@RequestBody OrderDto orderDto) {
         Long userId = UserHolder.get();

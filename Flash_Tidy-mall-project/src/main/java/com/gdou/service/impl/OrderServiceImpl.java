@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
 * @author huanghaiwei
@@ -46,6 +47,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order>
     private SkuMapper skuMapper;
     @Autowired
     private CouponMapper couponMapper;
+    @Autowired
+    private MerchantMapper merchantMapper;
     @Autowired
     private MqSender mqSender;
     /**
@@ -84,29 +87,35 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order>
      * @param orderNo
      * @return
      */
-    public Result orderQueryByMerchant(Long merchantId,String orderNo) {
+    public Result orderQueryByMerchant(Long merchantId, String orderNo) {
+        // 通过 order_item 校验该订单是否有属于此商家的明细
+        LambdaQueryWrapper<OrderItem> itemWrapper = new LambdaQueryWrapper<>();
+        itemWrapper.eq(OrderItem::getOrderNo, orderNo);
+        itemWrapper.eq(OrderItem::getMerchantId, merchantId);
+        Long itemCount = orderItemMapper.selectCount(itemWrapper);
+        if (itemCount == 0) {
+            return Result.Fail("订单编号为{}的订单不存在或不属于该商家", orderNo);
+        }
+        // 查订单
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Order::getOrderNo, orderNo);
-        wrapper.eq(Order::getMerchantId, merchantId);
-        Long l = orderMapper.selectCount(wrapper);
         Order order = orderMapper.selectOne(wrapper);
-        if(l==0){
+        if (order == null) {
             return Result.Fail("订单编号为{}的订单不存在", orderNo);
         }
-        LambdaQueryWrapper<OrderItem> wrapper1 = new LambdaQueryWrapper<>();
-        wrapper1.eq(OrderItem::getOrderNo, orderNo);
-        List<OrderItem> orderItems = orderItemMapper.selectList(wrapper1);
+        // 只返回该商家的明细（不是整个订单的所有明细）
+        List<OrderItem> orderItems = orderItemMapper.selectList(itemWrapper);
         List<OrderItemVo> orderItemVos = new ArrayList<>();
-        for(OrderItem orderItem:orderItems){
+        for (OrderItem orderItem : orderItems) {
             OrderItemVo orderItemVo = new OrderItemVo();
-            BeanUtils.copyProperties(orderItem,orderItemVo);
+            BeanUtils.copyProperties(orderItem, orderItemVo);
             orderItemVos.add(orderItemVo);
         }
         OrderVo orderVo = new OrderVo();
         BeanUtils.copyProperties(order, orderVo);
-        Map<Object,Object> map=new HashMap<>();
-        map.put("orderVo",orderVo);
-        map.put("orderItemVos",orderItemVos);
+        Map<Object, Object> map = new HashMap<>();
+        map.put("orderVo", orderVo);
+        map.put("orderItemVos", orderItemVos);
         return Result.success("订单查询成功", map);
     }
 
@@ -115,27 +124,61 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order>
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Order::getUserId, userId);
         wrapper.orderByDesc(Order::getCreateTime);
-        Long l = orderMapper.selectCount(wrapper);
-        if(l==0){
-            log.info("用户{}暂无订单",userId);
-        }
         List<Order> orders = orderMapper.selectList(wrapper);
-        log.info("用户{}订单如下：{}",userId,orders);
-        return Result.success("订单查询成功",orders);
+        if (orders.isEmpty()) {
+            log.info("用户{}暂无订单", userId);
+            return Result.success("订单查询成功", Collections.emptyList());
+        }
+        // 为每个订单组装详情（商品明细 + 店铺名）
+        List<Map<String, Object>> resultList = new ArrayList<>();
+        for (Order order : orders) {
+            LambdaQueryWrapper<OrderItem> itemWrapper = new LambdaQueryWrapper<>();
+            itemWrapper.eq(OrderItem::getOrderId, order.getId());
+            List<OrderItem> items = orderItemMapper.selectList(itemWrapper);
+            List<OrderItemVo> itemVos = new ArrayList<>();
+            for (OrderItem item : items) {
+                OrderItemVo vo = new OrderItemVo();
+                BeanUtils.copyProperties(item, vo);
+                vo.setMerchantId(item.getMerchantId());
+                // 查店铺名
+                if (item.getMerchantId() != null) {
+                    Merchant merchant = merchantMapper.selectById(item.getMerchantId());
+                    vo.setMerchantName(merchant != null ? merchant.getShopName() : null);
+                }
+                itemVos.add(vo);
+            }
+            OrderVo orderVo = new OrderVo();
+            BeanUtils.copyProperties(order, orderVo);
+            Map<String, Object> map = new HashMap<>();
+            map.put("order", orderVo);
+            map.put("items", itemVos);
+            resultList.add(map);
+        }
+        log.info("用户{}订单共{}条", userId, resultList.size());
+        return Result.success("订单查询成功", resultList);
     }
 
     @Override
     public Result orderQueryListByMerchant(Long merchantId) {
-        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Order::getMerchantId, merchantId);
-        wrapper.orderByDesc(Order::getCreateTime);
-        Long l = orderMapper.selectCount(wrapper);
-        if(l==0){
-            log.info("商家{}暂无订单",merchantId);
+        // 先从 order_item 查出该商家的订单ID集合
+        LambdaQueryWrapper<OrderItem> itemWrapper = new LambdaQueryWrapper<>();
+        itemWrapper.eq(OrderItem::getMerchantId, merchantId);
+        itemWrapper.select(OrderItem::getOrderId);
+        List<OrderItem> items = orderItemMapper.selectList(itemWrapper);
+        if (items.isEmpty()) {
+            log.info("商家{}暂无订单", merchantId);
+            return Result.success("订单查询成功", Collections.emptyList());
         }
+        Set<Long> orderIds = items.stream()
+                .map(OrderItem::getOrderId)
+                .collect(Collectors.toSet());
+        // 按 orderId 查订单
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(Order::getId, orderIds);
+        wrapper.orderByDesc(Order::getCreateTime);
         List<Order> orders = orderMapper.selectList(wrapper);
-        log.info("商家{}店铺的订单如下：{}",merchantId,orders);
-        return Result.success("订单查询成功",orders);
+        log.info("商家{}店铺的订单如下：{}", merchantId, orders);
+        return Result.success("订单查询成功", orders);
     }
 
 
@@ -165,6 +208,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order>
         MqOrderMessage message = new MqOrderMessage();
         message.setUserId(userId);
         message.setOrderDto(orderDto);
+        message.setCouponId(orderDto.getCouponId());
+        message.setAddressSnapshot(orderDto.getAddressSnapshot());
         message.setMessageId(UUID.randomUUID().toString());
         mqSender.orderSend(MqConstant.MQ_ORDER_EXCHANGE,MqConstant.MQ_ORDER_ROUTING_KEY,message);
         return Result.success("下单成功，正在为您创建订单");

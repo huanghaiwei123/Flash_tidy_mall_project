@@ -26,11 +26,10 @@ public class RabbitMqConfig  {
      */
    @Bean
     public Queue orderQueue(){
-       Queue queue = QueueBuilder.durable()
+       return QueueBuilder.durable(MqConstant.MQ_ORDER_Queue)
                .deadLetterExchange(MqConstant.MQ_ORDER_DEAD_EXCHANGE)
                .deadLetterRoutingKey(MqConstant.MQ_ORDER_DEAD_ROUTING_KEY)
                .build();
-       return queue;
    }
 
    /**
@@ -59,7 +58,7 @@ public class RabbitMqConfig  {
      */
     @Bean 
     public Queue OrderDeadQueue(){
-        return QueueBuilder.durable().build();
+        return QueueBuilder.durable(MqConstant.MQ_ORDER_DEAD_QUEUE).build();
     }
 
     /**
@@ -68,7 +67,7 @@ public class RabbitMqConfig  {
      */
     @Bean
     public Binding OrderDeadBinding() {
-        return BindingBuilder.bind(orderQueue()).to(OrderDeadExchange()).with(MqConstant.MQ_ORDER_DEAD_ROUTING_KEY);
+        return BindingBuilder.bind(OrderDeadQueue()).to(OrderDeadExchange()).with(MqConstant.MQ_ORDER_DEAD_ROUTING_KEY);
     }
 
     /**
@@ -81,21 +80,41 @@ public class RabbitMqConfig  {
     }
 
     /**
-     * 订单延迟取消队列
+     * 订单延迟取消队列（带 TTL，消息过期后转发到消费队列）
      * @return
      */
     @Bean
     public Queue orderDelayCancelQueue(){
-        return QueueBuilder.durable().ttl(15*60*1000).build();
+        return QueueBuilder.durable(MqConstant.MQ_ORDER_DELAY_QUEUE)
+                .ttl(15 * 60 * 1000)
+                .deadLetterExchange(MqConstant.MQ_ORDER_DELAY_EXCHANGE)
+                .deadLetterRoutingKey(MqConstant.MQ_ORDER_DELAY_CONSUME_ROUTING_KEY)
+                .build();
     }
 
     /**
-     * 订单延迟取消绑定
+     * 订单延迟取消绑定（发送到延迟队列）
      * @return
      */
     @Bean
     public Binding orderDelayCancelBinding() {
         return BindingBuilder.bind(orderDelayCancelQueue()).to(orderDelayCancelExchange()).with(MqConstant.MQ_ORDER_DELAY_ROUTING_KEY);
+    }
+
+    /**
+     * 延迟取消消费队列（消息过期后实际消费的队列）
+     */
+    @Bean
+    public Queue orderDelayConsumeQueue() {
+        return QueueBuilder.durable(MqConstant.MQ_ORDER_DELAY_CONSUME_QUEUE).build();
+    }
+
+    /**
+     * 延迟消费队列绑定（过期消息从死信交换机路由到消费队列）
+     */
+    @Bean
+    public Binding orderDelayConsumeBinding() {
+        return BindingBuilder.bind(orderDelayConsumeQueue()).to(orderDelayCancelExchange()).with(MqConstant.MQ_ORDER_DELAY_CONSUME_ROUTING_KEY);
     }
 
 

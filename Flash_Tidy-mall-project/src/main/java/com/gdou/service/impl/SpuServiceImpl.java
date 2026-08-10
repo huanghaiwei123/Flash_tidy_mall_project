@@ -62,13 +62,22 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
     public Result spuSave(Long merchantId, SpuDto spuDto) {
         Spu spu = new Spu();
         BeanUtils.copyProperties(spuDto, spu);
-        LambdaQueryWrapper<Category> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Category::getName, spuDto.getCategoryName());
-        Category category = categoryMapper.selectOne(wrapper);
-        if (category == null) {
-            return Result.Fail("分类不存在，请先创建分类");
+        Long categoryId = spuDto.getCategoryId();
+        if (categoryId != null) {
+            // 优先使用下拉框选中的分类ID
+            Category category = categoryMapper.selectById(categoryId);
+            if (category == null) return Result.Fail("分类不存在");
+            spu.setCategoryName(category.getName());
+        } else if (spuDto.getCategoryName() != null && !spuDto.getCategoryName().isEmpty()) {
+            // 兼容手动输入分类名
+            LambdaQueryWrapper<Category> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Category::getName, spuDto.getCategoryName());
+            Category category = categoryMapper.selectOne(wrapper);
+            if (category == null) return Result.Fail("分类不存在，请先创建分类");
+            categoryId = category.getId();
+        } else {
+            return Result.Fail("商品分类不能为空");
         }
-        Long categoryId = category.getId();
         spu.setMerchantId(merchantId);
         spu.setCategoryId(categoryId);
         spu.setCreateTime(new Date());
@@ -92,8 +101,14 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
         }
         BeanUtils.copyProperties(spuDto, spu);
         spu.setId(spuId);
-        // 分类名称变了，更新分类 ID
-        if (spuDto.getCategoryName() != null) {
+        // 分类更新：categoryId 优先，categoryName 兜底
+        if (spuDto.getCategoryId() != null) {
+            Category category = categoryMapper.selectById(spuDto.getCategoryId());
+            if (category != null) {
+                spu.setCategoryId(category.getId());
+                spu.setCategoryName(category.getName());
+            }
+        } else if (spuDto.getCategoryName() != null && !spuDto.getCategoryName().isEmpty()) {
             LambdaQueryWrapper<Category> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(Category::getName, spuDto.getCategoryName());
             Category category = categoryMapper.selectOne(wrapper);

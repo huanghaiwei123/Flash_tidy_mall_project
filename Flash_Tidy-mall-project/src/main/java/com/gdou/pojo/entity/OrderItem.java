@@ -50,6 +50,11 @@ public class OrderItem implements Serializable {
     private Long skuId;
 
     /**
+     * 商家ID（冗余，方便商家查询属于自己的订单明细）
+     */
+    private Long merchantId;
+
+    /**
      * SKU 名称快照
      */
     private String skuName;

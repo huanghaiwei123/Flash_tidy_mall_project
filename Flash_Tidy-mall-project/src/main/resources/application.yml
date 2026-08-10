@@ -14,8 +14,8 @@ spring:
     username: root
     password: 123456
   redis:
-    cluster:
-      nodes: ${REDIS_CLUSTER_NODES:192.168.147.131:7000,192.168.147.131:7001,192.168.147.131:7002,192.168.147.131:7003,192.168.147.131:7004,192.168.147.131:7005}
+    host: 192.168.147.131
+    port: 6379
     lettuce:
       pool:
         max-active: 200

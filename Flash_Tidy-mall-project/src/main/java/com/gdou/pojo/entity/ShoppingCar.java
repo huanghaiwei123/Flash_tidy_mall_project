@@ -37,6 +37,11 @@ public class ShoppingCar implements Serializable {
     private Long skuId;
 
     /**
+     * 商家id
+     */
+    private Long merchantId;
+
+    /**
      * 购买数量
      */
     private Integer quantity;

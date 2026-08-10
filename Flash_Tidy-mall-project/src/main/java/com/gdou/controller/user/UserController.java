@@ -3,6 +3,7 @@ package com.gdou.controller.user;
 import com.gdou.common.Result;
 import com.gdou.pojo.dto.MerchantApplyDto;
 import com.gdou.pojo.dto.UserDto;
+import com.gdou.pojo.dto.UserProfileDto;
 import com.gdou.service.MerchantApplicationService;
 import com.gdou.service.UserService;
 import com.gdou.util.UserHolder;
@@ -27,10 +28,10 @@ public class UserController {
      * @return
      */
     @PostMapping("/changePerDetails")
-    public Result changePerDetails(@Valid @RequestBody UserDto userDto) {
+    public Result changePerDetails(@Valid @RequestBody UserProfileDto userDto) {
         Long userId = UserHolder.get();
         log.info("用户{}正在修改自己的个人信息", userId);
-        return userService.changePerDetails(userId,userDto);
+        return userService.changePerDetails(userId, userDto);
     }
 
     @PostMapping("/changePage")

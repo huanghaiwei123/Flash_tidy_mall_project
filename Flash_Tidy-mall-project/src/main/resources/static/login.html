@@ -41,8 +41,10 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
   if (!res) return;
   if (res.code === 200) {
     localStorage.setItem('token', res.data.token);
+    localStorage.setItem('userId', res.data.userId);
     // 将用户信息存入 localStorage，供各页面直接使用，免去每次查库
     var userInfo = {
+      userId: res.data.userId,
       nickname: res.data.nickname || '',
       phone: res.data.phone || '',
       email: res.data.email || '',

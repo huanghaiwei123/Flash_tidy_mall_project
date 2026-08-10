@@ -18,10 +18,11 @@ public class MerchantSpuController {
     private SpuService spuService;
 
     /**
-     * 商家查看自家店铺商品
+     * 商家查看自家店铺商品（商家即用户，merchantId = 当前登录用户ID）
      */
     @GetMapping("/spu/query")
-    public Result spuQuery(@RequestParam Long merchantId){
+    public Result spuQuery(){
+        Long merchantId = UserHolder.get();
         log.info("商家{}正在查看自己店铺商品", merchantId);
         return spuService.spuQuery(merchantId);
     }

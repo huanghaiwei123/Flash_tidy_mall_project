@@ -6,8 +6,10 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gdou.common.Result;
 import com.gdou.mapper.ShoppingCarMapper;
 import com.gdou.mapper.SkuMapper;
+import com.gdou.mapper.SpuMapper;
 import com.gdou.pojo.entity.ShoppingCar;
 import com.gdou.pojo.entity.Sku;
+import com.gdou.pojo.entity.Spu;
 import com.gdou.service.ShoppingCarService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +34,8 @@ public class ShoppingCarServiceImpl extends ServiceImpl<ShoppingCarMapper, Shopp
     private ShoppingCarMapper shoppingCarMapper;
     @Autowired
     private SkuMapper skuMapper;
+    @Autowired
+    private SpuMapper spuMapper;
 
     @Override
     @Transactional
@@ -40,6 +44,9 @@ public class ShoppingCarServiceImpl extends ServiceImpl<ShoppingCarMapper, Shopp
         Sku sku = skuMapper.selectById(skuId);
         if (sku == null || sku.getStatus() == 0) {
             return Result.Fail("商品已下架或不存在");
+        }
+        if(sku.getStock() < quantity){
+            return Result.Fail("商品库存不足");
         }
         // 检查购物车是否已有该 SKU
         LambdaQueryWrapper<ShoppingCar> wrapper = new LambdaQueryWrapper<>();
@@ -53,10 +60,13 @@ public class ShoppingCarServiceImpl extends ServiceImpl<ShoppingCarMapper, Shopp
             shoppingCarMapper.updateById(car);
             log.info("用户 {} 购物车 SKU {} 数量+{} → {}", userId, skuId, quantity, car.getQuantity());
         } else {
+            // 从 SPU 获取商家ID
+            Spu spu = spuMapper.selectById(spuId);
             car = new ShoppingCar();
             car.setUserId(userId);
             car.setSpuId(spuId);
             car.setSkuId(skuId);
+            car.setMerchantId(spu != null ? spu.getMerchantId() : null);
             car.setQuantity(quantity);
             car.setSelected(1);
             car.setCreateTime(new Date());
@@ -133,6 +143,7 @@ public class ShoppingCarServiceImpl extends ServiceImpl<ShoppingCarMapper, Shopp
             item.put("cartId", car.getId());
             item.put("spuId", car.getSpuId());
             item.put("skuId", car.getSkuId());
+            item.put("merchantId", car.getMerchantId());
             item.put("quantity", car.getQuantity());
             item.put("selected", car.getSelected());
             item.put("createTime", car.getCreateTime());

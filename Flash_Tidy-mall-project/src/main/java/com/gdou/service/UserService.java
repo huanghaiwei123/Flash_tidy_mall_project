@@ -2,6 +2,7 @@ package com.gdou.service;
 
 import com.gdou.common.Result;
 import com.gdou.pojo.dto.UserDto;
+import com.gdou.pojo.dto.UserProfileDto;
 import com.gdou.pojo.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 
@@ -11,7 +12,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 * @createDate 2026-08-06 21:59:46
 */
 public interface UserService extends IService<User> {
-    Result changePerDetails(Long userId,UserDto userDto) ;
+    Result changePerDetails(Long userId, UserProfileDto userDto);
 
     Result changeMerchantRolePage(Long userId);
 

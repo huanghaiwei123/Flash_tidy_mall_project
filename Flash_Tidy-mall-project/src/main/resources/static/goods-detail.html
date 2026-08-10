@@ -51,6 +51,7 @@ function renderDetail(spu) {
     '    </div>' +
     (spu.brand ? '<p style="color:#999;font-size:14px;">品牌：' + esc(spu.brand) + '</p>' : '') +
     (spu.categoryName ? '<p style="color:#999;font-size:14px;">分类：' + esc(spu.categoryName) + '</p>' : '') +
+    (spu.merchantId ? '<p style="margin-top:8px;"><a href="shop.html?id=' + spu.merchantId + '" style="color:#e4393c;text-decoration:none;font-size:14px;">🏪 进入店铺</a></p>' : '') +
     '<p style="color:#999;font-size:14px;">已售 ' + (spu.sales || 0) + ' 件</p>' +
     (skuList.length ? '<h3 style="margin-top:16px;">规格选择</h3><div class="sku-list">' + skuHtml + '</div>' : '') +
     (skuList.length ? '<div class="quantity-ctrl"><span>数量：</span><button onclick="changeQty(-1)">-</button><input type="number" id="qty" value="1" min="1" onchange="onQtyChange()"><button onclick="changeQty(1)">+</button></div>' : '') +

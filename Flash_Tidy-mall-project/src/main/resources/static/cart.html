@@ -176,7 +176,7 @@ async function createOrder() {
     detail: addr.detail
   };
   var orderDto = {
-    car: selected.map(function(ci) { return { spuId: ci.spuId, skuId: ci.skuId, quantity: ci.quantity }; }),
+    car: selected.map(function(ci) { return { spuId: ci.spuId, skuId: ci.skuId, merchantId: ci.merchantId, quantity: ci.quantity }; }),
     addressSnapshot: addressSnapshot
   };
   var res = await post('/user/order/create', orderDto);
