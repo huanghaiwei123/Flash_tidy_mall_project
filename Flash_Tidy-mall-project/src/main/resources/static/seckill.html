@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ 限时秒杀 - 潮汐商城</title>
+<link rel="stylesheet" href="http://localhost:8080/css/style.css">
+<link rel="icon" type="image/png" href="http://localhost:8080/img/logo.png">
+<style>
+  .seckill-hero {
+    background: linear-gradient(135deg, #ff4d2e, #ff6b35);
+    color: #fff;
+    padding: 24px 32px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .seckill-hero h1 { margin:0; font-size:28px; }
+  .seckill-hero .icon { font-size:48px; }
+  .seckill-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .seckill-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s;
+    position: relative;
+  }
+  .seckill-card:hover { transform: translateY(-4px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+  .seckill-card .img-wrap {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    background: #f5f5f5;
+  }
+  .seckill-card .img-wrap img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .seckill-card .tag {
+    position: absolute;
+    top: 8px; left: 8px;
+    background: #ff4d2e;
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .seckill-card .countdown {
+    position: absolute;
+    bottom: 8px; left: 8px; right: 8px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    text-align: center;
+    padding: 4px 0;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .seckill-card .info { padding: 12px 14px; }
+  .seckill-card .name {
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .seckill-card .shop {
+    font-size: 12px; color: #999; margin-bottom: 4px;
+  }
+  .seckill-card .start-time {
+    font-size: 11px; color: #ff4d2e; margin-bottom: 8px;
+  }
+  .seckill-card .price-row {
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .seckill-card .seckill-price {
+    color: #ff4d2e; font-size: 22px; font-weight: 700;
+  }
+  .seckill-card .seckill-price::before { content: '¥'; font-size: 14px; }
+  .seckill-card .orig-price {
+    color: #bbb; font-size: 13px; text-decoration: line-through;
+  }
+  .seckill-card .stock-bar {
+    margin-top: 8px; height: 6px; background: #eee;
+    border-radius: 3px; overflow: hidden;
+  }
+  .seckill-card .stock-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff4d2e, #ff6b35);
+    border-radius: 3px; transition: width 0.5s;
+  }
+  .seckill-card .stock-text { font-size: 11px; color: #999; margin-top: 4px; }
+  .seckill-card .buy-btn {
+    display: block; width: 100%; margin-top: 10px; padding: 8px 0;
+    background: linear-gradient(135deg, #ff4d2e, #ff6b35);
+    color: #fff; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+  }
+  .seckill-card .buy-btn:hover { opacity: 0.9; }
+  .seckill-card .buy-btn:disabled { background: #ccc; cursor: not-allowed; }
+  .seckill-card .buy-btn.sold-out { background: #bbb; }
+  .empty-state { text-align:center; padding:60px 0; color:#999; }
+  .empty-state .icon { font-size:64px; display:block; margin-bottom:12px; }
+
+  /* 滚动字幕 */
+  .marquee-bar {
+    height: 40px; line-height: 40px;
+    background: linear-gradient(90deg, #fff7e6, #fffbe6, #fff7e6);
+    border: 1px solid #ffe58f;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    position: relative;
+  }
+  .marquee-bar .marquee-track {
+    display: inline-block;
+    white-space: nowrap;
+    animation: marqueeScroll 14s linear infinite;
+  }
+  .marquee-bar .marquee-text {
+    color: #d4380d;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 2px;
+  }
+  .marquee-bar .marquee-text .dot {
+    margin: 0 8px; color: #faad14; font-size: 16px;
+  }
+  @keyframes marqueeScroll {
+    0%   { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+  }
+
+  /* 秒杀确认弹窗 */
+  .seckill-modal .modal-box { max-width:420px; }
+  .seckill-modal .addr-line {
+    padding: 10px 12px; background: #fffbe6; border-radius: 6px;
+    font-size: 13px; line-height: 1.6; margin: 8px 0;
+  }
+  .seckill-modal .addr-line .name { font-weight:600; }
+  .seckill-modal .summary-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; font-size: 14px;
+  }
+  .seckill-modal .summary-row .label { color: #666; }
+  .seckill-modal .summary-row .seckill-price { color: #ff4d2e; font-size:20px; font-weight:700; }
+</style>
+</head>
+<body data-auth="true">
+<div id="navbar"></div>
+<div class="container">
+  <div class="seckill-hero">
+    <span class="icon">⚡</span>
+    <div>
+      <h1>限时秒杀</h1>
+      <p style="margin:4px 0 0;opacity:0.9;">超低价抢购，手慢无！</p>
+    </div>
+  </div>
+  <!-- 滚动字幕 -->
+  <div class="marquee-bar">
+    <div class="marquee-track">
+      <span class="marquee-text">⚡ 秒杀好物定时更新，超值低价限时抢购，手慢就没了哟<span class="dot">✦</span>📦 每日精选品质好货，价格低到不敢想象<span class="dot">✦</span>🔥 客官们平时记得多多上线，好价不等人，错过等下一波<span class="dot">✦</span>🎉 潮汐商城感谢您的支持与厚爱，祝您购物愉快</span>
+    </div>
+  </div>
+  <div id="seckillList"><div class="loading"><span class="spinner"></span>加载中...</div></div>
+</div>
+
+<!-- 秒杀确认弹窗 -->
+<div class="modal seckill-modal" id="seckillConfirmModal" style="display:none;">
+  <div class="modal-overlay" onclick="closeSeckillModal()"></div>
+  <div class="modal-box">
+    <h3>⚡ 确认秒杀</h3>
+    <div id="confirmContent"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button type="button" class="btn" onclick="closeSeckillModal()" style="flex:1;">取消</button>
+      <button type="button" class="btn btn-primary" id="confirmSeckillBtn" style="flex:2;" onclick="doSeckill()">⚡ 确认抢购</button>
+    </div>
+  </div>
+</div>
+
+<script src="http://localhost:8080/js/api.js"></script>
+<script src="http://localhost:8080/js/common.js"></script>
+<script>
+var seckillData = [];
+var initialStock = {}; // 活动配额，用于进度条分母
+var pendingItem = null; // 当前等待确认的秒杀商品
+var countdownTimer = null;
+var stockTimer = null;
+
+// ====== 加载秒杀列表 ======
+async function loadSeckill() {
+  var res = await get('/seckill/query');
+  if (!res || res.code !== 200) {
+    document.getElementById('seckillList').innerHTML = '<div class="empty-state"><span class="icon">😵</span>加载失败</div>';
+    return;
+  }
+  seckillData = res.data || [];
+  if (!seckillData.length) {
+    document.getElementById('seckillList').innerHTML = '<div class="empty-state"><span class="icon">⏳</span>暂无秒杀活动<br><small>敬请期待下一场</small></div>';
+    return;
+  }
+  // 记录初始配额作为进度条分母
+  seckillData.forEach(function(item) {
+    if (!initialStock[item.skuId]) {
+      initialStock[item.skuId] = item.seckillStock;
+    }
+  });
+  buildCards();
+  // 每秒更新倒计时
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(updateCountdowns, 1000);
+  // 每 5 秒刷新库存
+  if (stockTimer) clearInterval(stockTimer);
+  stockTimer = setInterval(refreshStocks, 5000);
+}
+
+// ====== 首次构建卡片 DOM（只执行一次） ======
+function buildCards() {
+  var html = '<div class="seckill-grid">';
+  seckillData.forEach(function(item) {
+    html +=
+      '<div class="seckill-card" id="card-' + item.skuId + '">' +
+      '  <div class="img-wrap">' +
+      '    <span class="tag">⚡ 秒杀</span>' +
+      '    <img src="' + escUrl(item.spuImage || item.skuImage || '') + '" alt="" onerror="this.src=\'http://localhost:8080/img/logo.png\'">' +
+      '    <div class="countdown" id="cd-' + item.skuId + '">⏱ ...</div>' +
+      '  </div>' +
+      '  <div class="info">' +
+      '    <div class="name" title="' + esc(item.spuName || item.skuName || '') + '">' + esc(item.spuName || item.skuName || '') + '</div>' +
+      '    <div class="shop">' + esc(item.shopName || '') + '</div>' +
+'    <div class="start-time">🕐 ' + formatDateTime(item.seckillStartTime) + ' 开抢 · 持续' + formatDuration(item.seckillStartTime, item.seckillEndTime) + '</div>' +
+      '    <div class="price-row">' +
+      '      <span class="seckill-price">' + (item.seckillPrice || 0) + '</span>' +
+      '      <span class="orig-price">¥' + (item.originalPrice || 0) + '</span>' +
+      '    </div>' +
+      '    <div class="stock-bar"><div class="fill" id="bar-' + item.skuId + '" style="width:100%;"></div></div>' +
+      '    <div class="stock-text" id="stk-' + item.skuId + '">剩余 ' + item.seckillStock + ' 件</div>' +
+      '    <button class="buy-btn" id="btn-' + item.skuId + '" onclick="openSeckillConfirm(' + item.skuId + ')">立即抢购</button>' +
+      '  </div>' +
+      '</div>';
+  });
+  html += '</div>';
+  document.getElementById('seckillList').innerHTML = html;
+  updateCountdowns();
+  updateStockUI();
+}
+
+// ====== 只更新倒计时文字 ======
+function updateCountdowns() {
+  var now = new Date().getTime();
+  seckillData.forEach(function(item) {
+    var el = document.getElementById('cd-' + item.skuId);
+    var btn = document.getElementById('btn-' + item.skuId);
+    if (!el) return;
+    var startTime = new Date(item.seckillStartTime).getTime();
+    var endTime = new Date(item.seckillEndTime).getTime();
+
+    // 还未开始
+    if (now < startTime) {
+      var remain = startTime - now;
+      var h = Math.floor(remain / 3600000);
+      var m = Math.floor((remain % 3600000) / 60000);
+      var s = Math.floor((remain % 60000) / 1000);
+      el.textContent = '⏳ ' + (h > 0 ? h + '时' + m + '分' + s + '秒 后开始' : m + '分' + s + '秒 后开始');
+      el.style.background = 'rgba(250,173,20,0.85)';
+      if (btn) { btn.textContent = '即将开始'; btn.className = 'buy-btn'; btn.disabled = true; btn.onclick = null; }
+      return;
+    }
+
+    // 已结束
+    var endRemain = Math.max(0, endTime - now);
+    if (endRemain <= 0) {
+      el.textContent = '⏱ 已结束';
+      el.style.background = 'rgba(0,0,0,0.7)';
+      if (btn) { btn.textContent = '已结束'; btn.className = 'buy-btn sold-out'; btn.disabled = true; btn.onclick = null; }
+      return;
+    }
+
+    // 进行中
+    var eh = Math.floor(endRemain / 3600000);
+    var em = Math.floor((endRemain % 3600000) / 60000);
+    var es = Math.floor((endRemain % 60000) / 1000);
+    el.textContent = '⏱ ' + (eh > 0 ? eh + '时' + em + '分' + es + '秒 后结束' : em + '分' + es + '秒 后结束');
+    el.style.background = 'rgba(0,0,0,0.7)';
+    if (btn && item.seckillStock > 0) { btn.textContent = '立即抢购'; btn.className = 'buy-btn'; btn.disabled = false; btn.onclick = function() { openSeckillConfirm(item.skuId); }; }
+  });
+}
+
+// ====== 只更新库存 UI ======
+function updateStockUI() {
+  seckillData.forEach(function(item) {
+    var stkEl = document.getElementById('stk-' + item.skuId);
+    var barEl = document.getElementById('bar-' + item.skuId);
+    var btnEl = document.getElementById('btn-' + item.skuId);
+    var init = initialStock[item.skuId] || 1;
+    var cur = item.seckillStock;
+    var pct = init > 0 ? Math.max(0, Math.round(cur / init * 100)) : 0;
+    if (stkEl) stkEl.textContent = '剩余 ' + cur + ' 件';
+    if (barEl) barEl.style.width = pct + '%';
+    if (cur <= 0 && btnEl) {
+      btnEl.textContent = '已抢光';
+      btnEl.className = 'buy-btn sold-out';
+      btnEl.disabled = true;
+      btnEl.onclick = null;
+    }
+  });
+}
+
+// ====== 定时刷新库存（后台拉） ======
+async function refreshStocks() {
+  var res = await get('/seckill/query');
+  if (!res || res.code !== 200) return;
+  var fresh = res.data || [];
+  if (!fresh.length) return;
+  // 只更新库存字段，不动其他
+  var map = {};
+  fresh.forEach(function(f) { map[f.skuId] = f.seckillStock; });
+  seckillData.forEach(function(item) {
+    if (map.hasOwnProperty(item.skuId)) {
+      item.seckillStock = map[item.skuId];
+    }
+  });
+  updateStockUI();
+  // 同步检查是否全部下架
+  updateCountdowns();
+}
+
+// ====== 打开秒杀确认弹窗 ======
+async function openSeckillConfirm(skuId) {
+  var item = seckillData.find(function(d) { return d.skuId === skuId; });
+  if (!item || item.seckillStock <= 0) return;
+  pendingItem = item;
+
+  // 查默认地址
+  var addrText = '<span style="color:#999;">加载中...</span>';
+  var addrObj = null;
+  try {
+    var addrRes = await get('/address/query');
+    if (addrRes && addrRes.code === 200 && addrRes.data && addrRes.data.length) {
+      var addrs = addrRes.data;
+      var def = addrs.find(function(a) { return a.isDefault === 1; }) || addrs[0];
+      addrObj = def;
+      addrText = '<span class="name">' + esc(def.consignee || '') + '</span> ' + esc(def.phone || '') + '<br>' +
+                 esc((def.province || '') + (def.city || '') + (def.district || '') + (def.detail || ''));
+    } else {
+      addrText = '<span style="color:#ff4d2e;">⚠ 暂无收货地址，请先去添加</span>';
+    }
+  } catch(e) { addrText = '<span style="color:#ff4d2e;">获取地址失败</span>'; }
+
+  document.getElementById('confirmContent').innerHTML =
+    '<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">' +
+    '  <img src="' + escUrl(item.spuImage || item.skuImage || '') + '" style="width:72px;height:72px;object-fit:cover;border-radius:8px;background:#f5f5f5;" onerror="this.style.display=\'none\'">' +
+    '  <div>' +
+    '    <div style="font-weight:600;margin-bottom:4px;">' + esc(item.spuName || item.skuName || '') + '</div>' +
+    '    <div style="font-size:12px;color:#999;">' + esc(item.skuName || '') + '</div>' +
+    '    <div style="color:#ff4d2e;font-size:18px;font-weight:700;">¥' + (item.seckillPrice || 0) + '</div>' +
+    '  </div>' +
+    '</div>' +
+    '<div style="font-size:12px;color:#999;margin-top:8px;">📦 收货地址：</div>' +
+    '<div class="addr-line">' + addrText + '</div>' +
+    '<div class="summary-row">' +
+    '  <span class="label">数量</span><span>×1</span>' +
+    '</div>' +
+    '<div class="summary-row">' +
+    '  <span class="label">秒杀价</span><span class="seckill-price">¥' + (item.seckillPrice || 0) + '</span>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;">' +
+    '  <img id="captchaImg" src="" onclick="refreshCaptcha()" title="点击刷新验证码" style="height:44px;cursor:pointer;border:1px solid #eee;border-radius:6px;background:#fafafa;">' +
+    '  <input id="captchaInput" type="text" placeholder="请输入验证码结果" maxlength="6" style="flex:1;height:44px;padding:0 12px;border:1px solid #ddd;border-radius:6px;font-size:16px;box-sizing:border-box;">' +
+    '</div>';
+
+  // 存地址对象供提交用
+  pendingItem._addrObj = addrObj;
+
+  document.getElementById('seckillConfirmModal').style.display = 'flex';
+  refreshCaptcha();
+}
+
+// ====== 刷新验证码 ======
+async function refreshCaptcha() {
+  var img = document.getElementById('captchaImg');
+  if (!img) return;
+  img.src = '';
+  var res = await get('/seckill/captcha');
+  if (res && res.code === 200 && res.data) {
+    img.src = res.data.image || '';
+  }
+}
+
+function closeSeckillModal() {
+  document.getElementById('seckillConfirmModal').style.display = 'none';
+  pendingItem = null;
+}
+
+// ====== 执行秒杀 ======
+async function doSeckill() {
+  if (!pendingItem) return;
+  if (!pendingItem._addrObj) {
+    toast('请先去个人中心添加收货地址', 'warning');
+    return;
+  }
+  var captchaInput = document.getElementById('captchaInput');
+  var captcha = captchaInput ? captchaInput.value.trim() : '';
+  if (!captcha) {
+    toast('请输入验证码', 'warning');
+    return;
+  }
+  var btn = document.getElementById('confirmSeckillBtn');
+  btn.disabled = true;
+  btn.textContent = '抢购中...';
+
+  var dto = {
+    addressSnapshot: pendingItem._addrObj,
+    car: [{
+      spuId: pendingItem.spuId,
+      skuId: pendingItem.skuId,
+      merchantId: pendingItem.merchantId,
+      quantity: 1
+    }],
+    captcha: captcha
+  };
+
+  var res = await post('/seckill/start', dto);
+  btn.disabled = false;
+  btn.textContent = '⚡ 确认抢购';
+
+  if (!res) return;
+  if (res.code === 200) {
+    toast('🎉 秒杀成功！跳转到订单页...');
+    closeSeckillModal();
+    setTimeout(function() {
+      window.location.href = 'http://localhost:8080/order-list.html';
+    }, 1500);
+  } else {
+    toast(res.msg || '秒杀失败', 'error');
+    // 如果是已抢光，刷新库存
+    if (res.msg && res.msg.indexOf('库存') !== -1) {
+      refreshStocks();
+    }
+    // 验证码错误/过期时，清空并刷新验证码
+    if (res.msg && res.msg.indexOf('验证码') !== -1) {
+      if (captchaInput) captchaInput.value = '';
+      refreshCaptcha();
+    }
+  }
+}
+
+function formatDuration(start, end) {
+  if (!start || !end) return '';
+  var diff = Math.round((new Date(end) - new Date(start)) / 1000); // 秒
+  if (diff < 60) return diff + '秒';
+  if (diff < 3600) return Math.floor(diff / 60) + '分钟';
+  var h = Math.floor(diff / 3600);
+  var m = Math.floor((diff % 3600) / 60);
+  return m > 0 ? h + '小时' + m + '分钟' : h + '小时';
+}
+function formatDateTime(t) {
+  if (!t) return '';
+  var d = new Date(t);
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' +
+    String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function escUrl(s) { return (s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+loadSeckill();
+</script>
+</body>
+</html>
