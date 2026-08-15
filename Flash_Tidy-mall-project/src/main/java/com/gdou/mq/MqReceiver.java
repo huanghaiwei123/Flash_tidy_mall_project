@@ -10,11 +10,14 @@ import com.gdou.pojo.dto.ShoppingCarDto;
 import com.gdou.pojo.entity.*;
 import com.gdou.service.OrderService;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -49,8 +52,10 @@ public class MqReceiver {
      */
     @RabbitListener(queues = MqConstant.MQ_ORDER_Queue)
     @Transactional(rollbackFor = Exception.class)
-    public void orderHandle(MqOrderMessage orderMessage) {
-        System.out.println("收到订单消息: " + orderMessage);
+    public void orderHandle(MqOrderMessage orderMessage,
+                            @Header(name = "traceId", required = false) String traceId) {
+        MDC.put("traceId", traceId);
+        log.info("收到订单消息: " + orderMessage);
         int compare=0;
         Long userId = orderMessage.getUserId();
         OrderDto orderDto = orderMessage.getOrderDto();
@@ -167,6 +172,8 @@ public class MqReceiver {
                 redisTemplate.opsForValue().increment(stockKey);
             }
             throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
+        } finally {
+            MDC.clear();
         }
     }
 
@@ -174,9 +181,15 @@ public class MqReceiver {
      * 监听死信队列，处理异常订单消息
      */
     @RabbitListener(queues = MqConstant.MQ_ORDER_DEAD_QUEUE)
-    public void deadOrderHandle(String message) {
-        System.out.println("收到死信订单消息: " + message);
-        // 记录日志、告警、人工处理...
+    public void deadOrderHandle(String message,
+                                @Header(name = "traceId", required = false) String traceId) {
+        MDC.put("traceId", traceId);
+        try {
+            log.info("收到死信订单消息: " + message);
+            // 记录日志、告警、人工处理...
+        } finally {
+            MDC.clear();
+        }
     }
 
     /**
@@ -184,29 +197,35 @@ public class MqReceiver {
      * @param message
      */
     @RabbitListener(queues = MqConstant.MQ_ORDER_DELAY_CONSUME_QUEUE)
-    public void delayOrderHandle(MqOrderDelayMessage message) {
-        String messageId = message.getMessageId();
-        Boolean b = redisTemplate.opsForValue().setIfAbsent(messageId, "1", 1, TimeUnit.DAYS);
-        if (Boolean.FALSE.equals(b)) {
-            log.warn("这个消息已经处理过了，不予处理");
-            return;
+    public void delayOrderHandle(MqOrderDelayMessage message,
+                                 @Header(name = "traceId", required = false) String traceId) {
+        MDC.put("traceId", traceId);
+        try {
+            String messageId = message.getMessageId();
+            Boolean b = redisTemplate.opsForValue().setIfAbsent(messageId, "1", 1, TimeUnit.DAYS);
+            if (Boolean.FALSE.equals(b)) {
+                log.warn("这个消息已经处理过了，不予处理");
+                return;
+            }
+            LambdaQueryWrapper<Order> orderLambdaQueryWrapper = new LambdaQueryWrapper<>();
+            orderLambdaQueryWrapper.eq(Order::getUserId, message.getUserId());
+            orderLambdaQueryWrapper.eq(Order::getOrderNo, message.getOrderNo());
+            Order order = orderMapper.selectOne(orderLambdaQueryWrapper);
+            if (order == null) {
+                log.warn("订单{}不存在", message.getOrderNo());
+                return;
+            }
+            if (!order.getStatus().equals(ResultMsgConstant.STATUS_PENDING_PAY)) {
+                log.info("订单{}状态不是待支付({}),无法取消", message.getOrderNo(), order.getStatus());
+                return;
+            }
+            // 恢复锁定库存 + 更新订单状态为取消
+            orderService.restoreStock(message.getOrderNo());
+            order.setStatus(ResultMsgConstant.STATUS_CANCELLED);
+            orderMapper.updateById(order);
+            log.info("订单{}十五分钟内用户未支付，已取消并恢复库存", message.getOrderNo());
+        } finally {
+            MDC.clear();
         }
-        LambdaQueryWrapper<Order> orderLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        orderLambdaQueryWrapper.eq(Order::getUserId, message.getUserId());
-        orderLambdaQueryWrapper.eq(Order::getOrderNo, message.getOrderNo());
-        Order order = orderMapper.selectOne(orderLambdaQueryWrapper);
-        if (order == null) {
-            log.warn("订单{}不存在", message.getOrderNo());
-            return;
-        }
-        if (!order.getStatus().equals(ResultMsgConstant.STATUS_PENDING_PAY)) {
-            log.info("订单{}状态不是待支付({}),无法取消", message.getOrderNo(), order.getStatus());
-            return;
-        }
-        // 恢复锁定库存 + 更新订单状态为取消
-        orderService.restoreStock(message.getOrderNo());
-        order.setStatus(ResultMsgConstant.STATUS_CANCELLED);
-        orderMapper.updateById(order);
-        log.info("订单{}十五分钟内用户未支付，已取消并恢复库存", message.getOrderNo());
     }
 }

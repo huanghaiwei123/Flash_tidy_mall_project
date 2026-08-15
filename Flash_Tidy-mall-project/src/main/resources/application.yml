@@ -16,6 +16,7 @@ spring:
   redis:
     host: 192.168.147.131
     port: 6379
+    timeout: 10s
     lettuce:
       pool:
         max-active: 200
@@ -75,3 +76,14 @@ alipay:
 logging:
   level:
     com.gdou: info
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: flash-mall

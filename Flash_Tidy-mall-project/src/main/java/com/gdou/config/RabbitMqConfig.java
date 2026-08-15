@@ -1,12 +1,15 @@
 package com.gdou.config;
 
 import com.gdou.constant.MqConstant;
+import org.slf4j.MDC;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
@@ -139,6 +142,20 @@ public class RabbitMqConfig  {
         executor.setThreadNamePrefix("mq-sender-");  // 底层自动用 CustomizableThreadFactory
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
+        executor.setTaskDecorator(runnable -> {
+            Map<String, String> context = MDC.getCopyOfContextMap();  //取主线程MDC
+            return ()->{
+                try{
+                    if(context!=null){
+                        MDC.setContextMap(context);   //塞进子线程
+                    }
+                    runnable.run();
+                }finally {
+                    MDC.clear();   //任务结束清掉，避免线程池里的线程被污染
+                }
+            };
+        });
+
         return executor;
     }
 }

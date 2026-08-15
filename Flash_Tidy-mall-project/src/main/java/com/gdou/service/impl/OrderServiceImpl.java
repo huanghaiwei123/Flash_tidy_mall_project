@@ -214,8 +214,6 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order>
         MqOrderMessage message = new MqOrderMessage();
         message.setUserId(userId);
         message.setOrderDto(orderDto);
-        message.setCouponId(orderDto.getCouponId());
-        message.setAddressSnapshot(orderDto.getAddressSnapshot());
         message.setMessageId(UUID.randomUUID().toString());
         message.setOrderType(orderType);
         mqSender.orderSend(MqConstant.MQ_ORDER_EXCHANGE,MqConstant.MQ_ORDER_ROUTING_KEY,message);
