@@ -46,6 +46,9 @@ public class MqReceiver {
     private MqSender mqSender;
     @Autowired
     private OrderService orderService;
+    @Autowired
+    private MqMessageLogMapper mqMessageLogMapper;
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
     /**
      * 监听订单队列，处理正常订单消息
@@ -178,15 +181,37 @@ public class MqReceiver {
     }
 
     /**
-     * 监听死信队列，处理异常订单消息
+     * 监听死信队列，处理异常订单消息（兜底：恢复秒杀库存 + 记录日志）
      */
     @RabbitListener(queues = MqConstant.MQ_ORDER_DEAD_QUEUE)
     public void deadOrderHandle(String message,
                                 @Header(name = "traceId", required = false) String traceId) {
         MDC.put("traceId", traceId);
         try {
-            log.info("收到死信订单消息: " + message);
-            // 记录日志、告警、人工处理...
+            log.warn("收到死信订单消息: " + message);
+            // 反序列化出订单消息
+            MqOrderMessage orderMessage = objectMapper.readValue(message, MqOrderMessage.class);
+            // 秒杀订单：恢复 Redis 秒杀库存
+            if ("SECKILL".equals(orderMessage.getOrderType())) {
+                List<ShoppingCarDto> car = orderMessage.getOrderDto().getCar();
+                if (car != null && !car.isEmpty()) {
+                    Long skuId = car.get(0).getSkuId();
+                    String stockKey = ResultMsgConstant.REDIS_SECKILL_STOCK_PREFIX + ":" + skuId;
+                    redisTemplate.opsForValue().increment(stockKey);
+                    log.warn("死信补偿：已恢复秒杀库存，skuId={}, stockKey={}", skuId, stockKey);
+                }
+            }
+            // 更新落库记录为最终失败（status=2），供人工排查
+            LambdaQueryWrapper<MqMessageLog> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(MqMessageLog::getMessageId, orderMessage.getMessageId());
+            MqMessageLog logRecord = mqMessageLogMapper.selectOne(wrapper);
+            if (logRecord != null) {
+                logRecord.setStatus(2);
+                logRecord.setUpdateTime(new Date());
+                mqMessageLogMapper.updateById(logRecord);
+            }
+        } catch (Exception e) {
+            log.error("死信消息处理失败: {}", e.getMessage());
         } finally {
             MDC.clear();
         }

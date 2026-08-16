@@ -1,19 +1,32 @@
 package com.gdou.config;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gdou.constant.MqConstant;
+import com.gdou.mapper.MqMessageLogMapper;
+import com.gdou.pojo.entity.MqMessageLog;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import javax.annotation.PostConstruct;
+import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
+@Slf4j
 public class RabbitMqConfig  {
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+    @Autowired
+    private MqMessageLogMapper mqMessageLogMapper;
     /**
      * 订单交易处理交换机
      * @return
@@ -158,4 +171,37 @@ public class RabbitMqConfig  {
 
         return executor;
     }
+
+    @PostConstruct
+    public void init(){
+//        消息发送到交换机的确认回调
+        rabbitTemplate.setConfirmCallback((correlationData, ack, cause) -> {
+            if(correlationData==null){
+                return;
+            }
+            String messageId = correlationData.getId();
+            LambdaQueryWrapper<MqMessageLog> mqMessageLogLambdaQueryWrapper = new LambdaQueryWrapper<>();
+            mqMessageLogLambdaQueryWrapper.eq(MqMessageLog::getMessageId, messageId);
+            MqMessageLog mqMessageLog = mqMessageLogMapper.selectOne(mqMessageLogLambdaQueryWrapper);
+            if(mqMessageLog==null){
+                return;
+            }
+            if (ack) {
+                mqMessageLog.setStatus(1);  //消息发送成功
+                log.info("消息发送成功，messageId={}",correlationData!=null?correlationData.getId():"null");
+            }else{
+                mqMessageLog.setStatus(2);
+                log.info("消息发送失败，messageId={}，cause={}",correlationData!=null?correlationData.getId():"null",cause);
+            }
+            mqMessageLog.setUpdateTime(new Date());
+            mqMessageLogMapper.updateById(mqMessageLog);
+        });
+
+//        消息路由不到队列时的回调，指的是交换机存在但是routingKey不存在的时候
+        rabbitTemplate.setReturnCallback((message, replyCode, replyText, exchange, routingKey) -> {
+            log.info("消息路由失败，message={},replyCode={},replyText={},exchange={},routingKey={}",message,replyCode,replyText,exchange,routingKey);
+        });
+    }
+
+
 }

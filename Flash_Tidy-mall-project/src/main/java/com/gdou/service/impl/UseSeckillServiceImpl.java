@@ -167,7 +167,7 @@ public class UseSeckillServiceImpl implements UserSeckillService {
         String stockKey=ResultMsgConstant.REDIS_SECKILL_STOCK_PREFIX+":"+skuId;
         String startTimeKey = ResultMsgConstant.REDIS_SECKILL_STARTTIME_PREFIX + ":" + skuId;
         String endTimeKey = ResultMsgConstant.REDIS_SECKILL_ENDTIME_PREFIX + ":" + skuId;
-        String userKey = ResultMsgConstant.REDIS_SECKILL_USER_PREFIX + ":" + userId+skuId;
+        String userKey = ResultMsgConstant.REDIS_SECKILL_USER_PREFIX + ":" + userId+":"+skuId;
         Long execute = null;
         try {
             execute = seckillMetrics.recordLuaDuration(() -> {

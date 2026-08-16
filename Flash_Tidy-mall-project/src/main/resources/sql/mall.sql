@@ -354,3 +354,17 @@ CREATE TABLE `merchant` (
     KEY `idx_status`    (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商家表（店铺信息，id与user一致）';
 
+CREATE TABLE IF NOT EXISTS mq_message_log (
+                                              id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                              message_id VARCHAR(64) NOT NULL COMMENT '业务消息ID，幂等用',
+                                              exchange VARCHAR(64) NOT NULL COMMENT '交换机',
+                                              routing_key VARCHAR(64) NOT NULL COMMENT '路由键',
+                                              message_body TEXT NOT NULL COMMENT '消息内容(JSON)',
+                                              status TINYINT NOT NULL DEFAULT 0 COMMENT '0=待发送 1=已发送 2=发送失败',
+                                              retry_count INT NOT NULL DEFAULT 0 COMMENT '已重试次数',
+                                              create_time DATETIME NOT NULL,
+                                              update_time DATETIME NOT NULL,
+                                              deleted TINYINT NOT NULL DEFAULT 0,
+                                              KEY idx_status (status),
+                                              KEY idx_message_id (message_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='MQ消息发送日志，兜底重发';
