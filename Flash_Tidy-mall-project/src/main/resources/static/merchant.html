@@ -15,7 +15,10 @@
 <div class="container">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
     <h1 style="margin:0;">🏪 商家中心</h1>
-    <button class="btn btn-sm" onclick="switchToUser()">🔄 切换回普通用户</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-sm btn-accent" onclick="goMyShop()">🏪 进入我的店铺</button>
+      <button class="btn btn-sm" onclick="switchToUser()">🔄 切换回普通用户</button>
+    </div>
   </div>
 
   <div class="tabs">
@@ -23,6 +26,7 @@
     <button class="tab" onclick="switchTab('sku')">📋 规格管理 (SKU)</button>
             <button class="tab" onclick="switchTab('seckill')">⚡ 秒杀活动</button>
     <button class="tab" onclick="switchTab('orders')">📑 订单管理</button>
+    <button class="tab" onclick="switchTab('comments')">💬 商品评论</button>
   </div>
 
   <!-- ==================== SPU 管理 ==================== -->
@@ -59,6 +63,11 @@
   <!-- ==================== 订单管理 ==================== -->
   <div class="tab-panel" id="panel-orders" style="display:none;">
     <div id="merchantOrders"><div class="loading">点击上方标签加载</div></div>
+  </div>
+
+  <!-- ==================== 商品评论 ==================== -->
+  <div class="tab-panel" id="panel-comments" style="display:none;">
+    <div id="merchantComments"><div class="loading">点击上方标签加载</div></div>
   </div>
 </div>
 
@@ -161,12 +170,13 @@ function switchTab(name) {
   document.getElementById('panel-' + name).style.display = 'block';
   // 高亮对应的 tab 按钮
   var tabs = document.querySelectorAll('.tab');
-  var tabMap = { spu: 0, sku: 1, seckill: 2, orders: 3 };
+  var tabMap = { spu: 0, sku: 1, seckill: 2, orders: 3, comments: 4 };
   if (tabs[tabMap[name]]) tabs[tabMap[name]].classList.add('active');
   if (name === 'spu' && !window._spuLoaded) { window._spuLoaded = true; loadSpuList(); }
   if (name === 'sku' && !window._skuLoaded) { window._skuLoaded = true; loadSpuOptions(); }
   if (name === 'seckill' && !window._seckillLoaded) { window._seckillLoaded = true; loadMerchantSeckill(); }
   if (name === 'orders' && !window._ordersLoaded) { window._ordersLoaded = true; loadMerchantOrders(); }
+  if (name === 'comments' && !window._commentsLoaded) { window._commentsLoaded = true; loadMerchantComments(); }
 }
 
 // ==================== SPU ====================
@@ -477,11 +487,98 @@ async function shipOrder(orderNo) {
   }
 }
 
+// ==================== 商品评论 ====================
+async function loadMerchantComments() {
+  var container = document.getElementById('merchantComments');
+  container.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+  var res = await get('/merchant/comment/list');
+  if (!res || res.code !== 200) { container.innerHTML = '<div class="loading">加载失败：' + (res && res.msg || '') + '</div>'; return; }
+  var list = res.data || [];
+  if (!list.length) { container.innerHTML = '<div class="loading">暂无评论</div>'; return; }
+
+  var html = '<table class="table"><thead><tr><th>商品</th><th>用户</th><th>评分</th><th>内容</th><th>回复</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(function(c) {
+    var stars = '';
+    for (var i = 1; i <= 5; i++) {
+      stars += '<span style="color:' + (i <= (c.rating || 0) ? '#ff9800' : '#ddd') + ';">★</span>';
+    }
+    var replyHtml = '';
+    var replies = c.replies || [];
+    if (replies.length) {
+      replies.forEach(function(r) {
+        var roleTag = r.commentType === 'MERCHANT_REPLY'
+          ? '<span class="comment-tag comment-tag-merchant">商家</span>'
+          : '<span class="comment-tag comment-tag-user">用户</span>';
+        replyHtml += '<div style="border-bottom:1px solid #f0f0f0;padding:4px 0;">' + roleTag + '<span style="color:#666;font-size:12px;margin-left:4px;">' + esc(r.userName || ('用户' + r.userId)) + '：</span>' + esc(r.content) + '</div>';
+      });
+    }
+    html += '<tr>' +
+      '<td>' + esc(c.spuName || ('SPU#' + c.spuId)) + '</td>' +
+      '<td>' + esc(c.userName || ('用户' + c.userId)) + '</td>' +
+      '<td>' + (c.commentType === 'TOP' ? stars : '—') + '</td>' +
+      '<td style="max-width:200px;word-break:break-all;">' + esc(c.content) + '</td>' +
+      '<td>' + (replyHtml || '<span style="color:#999;font-size:12px;">暂无回复</span>') + '</td>' +
+      '<td>' +
+      (c.commentType === 'TOP' ? '<button class="btn btn-sm btn-primary" onclick="openMerchantReply(' + c.id + ')">回复</button>' : '') +
+      '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+var merchantReplyId = null;
+function openMerchantReply(commentId) {
+  merchantReplyId = commentId;
+  var content = prompt('请输入回复内容：');
+  if (content === null) return;
+  if (!content.trim()) { toast('回复内容不能为空', 'error'); return; }
+  submitMerchantReply(commentId, content.trim());
+}
+
+async function submitMerchantReply(commentId, content) {
+  var res = await post('/merchant/comment/reply', { commentId: commentId, replyContent: content });
+  if (!res) return;
+  if (res.code === 200) {
+    toast('回复成功');
+    loadMerchantComments();
+  } else {
+    toast(res.msg || '回复失败', 'error');
+  }
+}
+
+var merchantReplyId = null;
+function openMerchantReply(commentId) {
+  merchantReplyId = commentId;
+  var content = prompt('请输入回复内容：');
+  if (content === null) return;
+  if (!content.trim()) { toast('回复内容不能为空', 'error'); return; }
+  submitMerchantReply(commentId, content.trim());
+}
+
+async function submitMerchantReply(commentId, content) {
+  var res = await post('/merchant/comment/reply', { commentId: commentId, replyContent: content });
+  if (!res) return;
+  if (res.code === 200) {
+    toast('回复成功');
+    loadMerchantComments();
+  } else {
+    toast(res.msg || '回复失败', 'error');
+  }
+}
+
 function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
 // ==================== 切回普通用户 ====================
 function switchToUser() {
   window.location.href = 'http://localhost:8080/user-center.html';
+}
+
+// ==================== 进入我的店铺（商家即用户，merchantId=当前登录用户ID） ====================
+function goMyShop() {
+  var uid = getUserId();
+  if (!uid) { toast('未获取到用户信息，请重新登录', 'error'); return; }
+  window.location.href = 'http://localhost:8080/shop.html?id=' + uid;
 }
 
 // ==================== 分类下拉框 ====================

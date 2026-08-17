@@ -368,3 +368,26 @@ CREATE TABLE IF NOT EXISTS mq_message_log (
                                               KEY idx_status (status),
                                               KEY idx_message_id (message_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='MQ消息发送日志，兜底重发';
+
+
+CREATE TABLE IF NOT EXISTS `product_comment` (
+                                                 `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '评论ID',
+                                                 `spu_id`        BIGINT       NOT NULL COMMENT '商品ID',
+                                                 `sku_id`        BIGINT       DEFAULT NULL COMMENT 'SKU ID（可选，买过可评具体规格）',
+                                                 `order_no`      VARCHAR(36)  DEFAULT NULL COMMENT '关联订单号（可选，买过才传）',
+                                                 `user_id`       BIGINT       NOT NULL COMMENT '发表者ID（用户或商家）',
+                                                 `parent_id`     BIGINT       DEFAULT NULL COMMENT '父评论ID，null=顶级评论',
+                                                 `reply_user_id` BIGINT       DEFAULT NULL COMMENT '被回复者ID',
+                                                 `comment_type`  VARCHAR(16)  NOT NULL DEFAULT 'TOP' COMMENT 'TOP=顶级评论 USER_REPLY=用户回复 MERCHANT_REPLY=商家回复',
+                                                 `rating`        TINYINT      DEFAULT NULL COMMENT '评分 1-5（仅顶级评论）',
+                                                 `content`       TEXT         NOT NULL COMMENT '评论内容',
+                                                 `images`        JSON         DEFAULT NULL COMMENT '评论图片',
+                                                 `status`        TINYINT      NOT NULL DEFAULT 1 COMMENT '1=正常 0=隐藏',
+                                                 `create_time`   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+                                                 `update_time`   DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                                 `deleted`       TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+                                                 PRIMARY KEY (`id`),
+                                                 KEY `idx_spu_status` (`spu_id`, `status`),
+                                                 KEY `idx_parent` (`parent_id`),
+                                                 KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品评论表（楼中楼）';

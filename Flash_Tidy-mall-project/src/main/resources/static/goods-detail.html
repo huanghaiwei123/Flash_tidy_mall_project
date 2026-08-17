@@ -28,6 +28,7 @@ async function loadDetail() {
   skuList = spu.skuList || [];
   if (skuList.length > 0) selectedSku = skuList[0];
   renderDetail(spu);
+  loadComments(1);
 }
 
 function renderDetail(spu) {
@@ -55,11 +56,175 @@ function renderDetail(spu) {
     '<p style="color:#999;font-size:14px;">已售 ' + (spu.sales || 0) + ' 件</p>' +
     (skuList.length ? '<h3 style="margin-top:16px;">规格选择</h3><div class="sku-list">' + skuHtml + '</div>' : '') +
     (skuList.length ? '<div class="quantity-ctrl"><span>数量：</span><button onclick="changeQty(-1)">-</button><input type="number" id="qty" value="1" min="1" onchange="onQtyChange()"><button onclick="changeQty(1)">+</button></div>' : '') +
-    '    <button class="btn btn-primary" style="margin-top:20px;padding:12px 40px;" onclick="addToCart()" ' + (!skuList.length ? 'disabled' : '') + '>🛒 加入购物车</button>' +
+    '    <button class="btn btn-accent" style="margin-top:20px;padding:14px 48px;font-size:16px;" onclick="addToCart()" ' + (!skuList.length ? 'disabled' : '') + '>🛒 加入购物车</button>' +
     (spu.description ? '<p style="margin-top:16px;color:#666;">' + esc(spu.description) + '</p>' : '') +
     '  </div>' +
     '</div>' +
-    (spu.detail ? '<div class="card" style="margin-top:20px;"><h2>商品详情</h2><div>' + spu.detail + '</div></div>' : '');
+    (spu.detail ? '<div class="card" style="margin-top:20px;"><h2>商品详情</h2><div>' + spu.detail + '</div></div>' : '') +
+    '<div class="card" style="margin-top:20px;" id="commentSection">' +
+    '  <h2>商品评价</h2>' +
+    '  <div id="commentBox"></div>' +
+    '</div>';
+}
+
+// ====== 评论模块 ======
+var commentPage = 1;
+var commentSize = 10;
+
+async function loadComments(page) {
+  commentPage = page || 1;
+  var res = await get('/comment/list/' + spuId, { page: commentPage, size: commentSize });
+  if (!res || res.code !== 200) { document.getElementById('commentBox').innerHTML = '<p style="color:#999;">评论加载失败</p>'; return; }
+  renderComments(res.data);
+}
+
+function renderComments(pageObj) {
+  var records = (pageObj && pageObj.records) || [];
+  var box = document.getElementById('commentBox');
+  if (!records.length) {
+    box.innerHTML = '<p style="color:#999;">暂无评价，快来发表第一条评论吧</p>' + commentFormHtml();
+    return;
+  }
+  var html = '';
+  records.forEach(function(c) {
+    html += commentItemHtml(c);
+  });
+  // 分页
+  var total = (pageObj && pageObj.total) || 0;
+  var pages = (pageObj && pageObj.pages) || 1;
+  html += '<div style="margin-top:16px;text-align:center;">';
+  if (commentPage > 1) html += '<button class="btn" onclick="loadComments(' + (commentPage - 1) + ')">上一页</button> ';
+  html += '<span style="color:#999;">第 ' + commentPage + ' / ' + pages + ' 页</span> ';
+  if (commentPage < pages) html += '<button class="btn" onclick="loadComments(' + (commentPage + 1) + ')">下一页</button>';
+  html += '</div>';
+  html += commentFormHtml();
+  box.innerHTML = html;
+}
+
+function commentItemHtml(c) {
+  var stars = '';
+  for (var i = 1; i <= 5; i++) {
+    stars += '<span class="' + (i <= (c.rating || 0) ? 'star-on' : 'star-off') + '">★</span>';
+  }
+  var tags = '';
+  if (c.orderNo) tags += '<span class="comment-tag comment-tag-bought">✔ 已购买</span>';
+  var typeTag = c.commentType === 'MERCHANT_REPLY'
+    ? '<span class="comment-tag comment-tag-merchant">商家回复</span>'
+    : (c.commentType === 'USER_REPLY' ? '<span class="comment-tag comment-tag-user">用户回复</span>' : '');
+  var replyTo = c.replyUserId ? '<span style="color:#666;font-size:13px;"> 回复 @' + esc(c.replyUserName || '') + '</span>' : '';
+  var repliesHtml = '';
+  var replies = c.replies || [];
+  replies.forEach(function(r) {
+    var roleTag = r.commentType === 'MERCHANT_REPLY'
+      ? '<span class="comment-tag comment-tag-merchant">商家</span>'
+      : '<span class="comment-tag comment-tag-user">用户</span>';
+    repliesHtml += '<div class="comment-reply-box">' +
+      roleTag +
+      '<span class="reply-user"> ' + esc(r.userName || ('用户' + r.userId)) + '</span>' +
+      '<span class="reply-user"> 回复 @' + esc(r.replyUserName || '') + '：</span>' +
+      '<span class="reply-content">' + esc(r.content) + '</span>' +
+      '<div class="reply-time">' + (r.createTime || '').replace('T', ' ') + '</div>' +
+      '<button class="btn btn-sm" style="margin-top:4px;" onclick="openReply(' + r.id + ',' + (r.userId || 'null') + ')">回复</button>' +
+      '</div>';
+  });
+  return '<div class="comment-item">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+    '  <div><span style="font-weight:600;">' + esc(c.userName || ('用户' + c.userId)) + '</span>' + replyTo + '</div>' +
+    '  <span style="color:#ccc;font-size:12px;">' + (c.createTime || '').replace('T', ' ') + '</span>' +
+    '</div>' +
+    (c.commentType === 'TOP' ? '<div class="comment-stars">' + stars + '</div>' : '') +
+    '<div style="margin-top:8px;">' + typeTag + tags + '</div>' +
+    '<p style="margin-top:8px;color:#333;">' + esc(c.content) + '</p>' +
+    '<button class="btn btn-sm" style="margin-top:8px;" onclick="openReply(' + c.id + ',' + (c.userId || 'null') + ')">回复</button>' +
+    repliesHtml +
+    '</div>';
+}
+
+function commentFormHtml() {
+  if (!isLogin()) {
+    return '<div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">' +
+      '<p style="color:#999;">登录后即可发表评论</p>' +
+      '<a href="http://localhost:8080/login.html" class="btn btn-primary">去登录</a></div>';
+  }
+  return '<div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">' +
+    '<h3>发表评论</h3>' +
+    '<div style="margin:12px 0;">' +
+    '  <span>评分：</span>' +
+    '  <select id="cmtRating" style="padding:4px 8px;">' +
+    '    <option value="5">★★★★★ 5分</option>' +
+    '    <option value="4">★★★★ 4分</option>' +
+    '    <option value="3">★★★ 3分</option>' +
+    '    <option value="2">★★ 2分</option>' +
+    '    <option value="1">★ 1分</option>' +
+    '  </select>' +
+    '</div>' +
+    '<textarea id="cmtContent" placeholder="说说你对这个商品的看法..." maxlength="500" rows="3" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;resize:vertical;"></textarea>' +
+    '<div style="margin-top:10px;">' +
+    '  <button class="btn btn-primary" onclick="submitComment()">发表评论</button>' +
+    '</div>' +
+    '<div id="replyBox" style="display:none;margin-top:12px;padding:12px;background:#f5f5f5;border-radius:6px;">' +
+    '  <p style="color:#666;" id="replyBoxTitle"></p>' +
+    '  <textarea id="replyContent" placeholder="输入回复内容..." maxlength="300" rows="2" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea>' +
+    '  <div style="margin-top:8px;">' +
+    '    <button class="btn btn-primary" onclick="submitReply()">提交回复</button>' +
+    '    <button class="btn" onclick="closeReply()">取消</button>' +
+    '  </div>' +
+    '</div>' +
+    '</div>';
+}
+
+var replyTarget = null; // { parentId, replyUserId }
+
+function openReply(parentId, replyUserId) {
+  replyTarget = { parentId: parentId, replyUserId: replyUserId };
+  var box = document.getElementById('replyBox');
+  document.getElementById('replyBoxTitle').textContent = replyUserId ? '回复 @用户' + replyUserId : '回复评论';
+  box.style.display = 'block';
+  document.getElementById('replyContent').value = '';
+}
+
+function closeReply() {
+  replyTarget = null;
+  document.getElementById('replyBox').style.display = 'none';
+}
+
+async function submitComment() {
+  var content = document.getElementById('cmtContent').value.trim();
+  if (!content) { toast('请输入评论内容', 'error'); return; }
+  var body = {
+    spuId: spuId,
+    rating: parseInt(document.getElementById('cmtRating').value),
+    content: content
+  };
+  var res = await post('/comment', body);
+  if (!res) return;
+  if (res.code === 200) {
+    toast('评论成功');
+    document.getElementById('cmtContent').value = '';
+    loadComments(1);
+  } else {
+    toast(res.msg || '评论失败', 'error');
+  }
+}
+
+async function submitReply() {
+  if (!replyTarget) { toast('请先选择要回复的评论', 'error'); return; }
+  var content = document.getElementById('replyContent').value.trim();
+  if (!content) { toast('请输入回复内容', 'error'); return; }
+  var body = {
+    spuId: spuId,
+    parentId: replyTarget.parentId,
+    content: content
+  };
+  var res = await post('/comment', body);
+  if (!res) return;
+  if (res.code === 200) {
+    toast('回复成功');
+    closeReply();
+    loadComments(commentPage);
+  } else {
+    toast(res.msg || '回复失败', 'error');
+  }
 }
 
 function selectSku(idx) {

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.gdou.constant.MqConstant;
 import com.gdou.constant.ResultMsgConstant;
+import com.gdou.exception.BusinessException;
 import com.gdou.mapper.*;
 import com.gdou.pojo.dto.OrderDto;
 import com.gdou.pojo.dto.ShoppingCarDto;
@@ -37,6 +38,8 @@ public class MqReceiver {
     @Autowired
     private CouponMapper couponMapper;
     @Autowired
+    private UserCouponMapper userCouponMapper;
+    @Autowired
     private SpuMapper spuMapper;
     @Autowired
     private OrderItemMapper orderItemMapper;
@@ -68,7 +71,7 @@ public class MqReceiver {
             Boolean b = redisTemplate.opsForValue().setIfAbsent(messageId, "1", 1, TimeUnit.DAYS);
             if (Boolean.FALSE.equals(b)) {
                 log.warn("该订单消息已经处理过了，不予处理，立即返回");
-                return;
+                throw new BusinessException("商品库存不足，订单创建失败");
             }
             List<ShoppingCarDto> list = orderDto.getCar();
             BigDecimal totalPrice = BigDecimal.ZERO;
@@ -82,6 +85,13 @@ public class MqReceiver {
                 skuLambdaQueryWrapper.eq(Sku::getSpuId, shoppingCarDto.getSpuId());
                 Sku sku = skuMapper.selectOne(skuLambdaQueryWrapper);
                 skuCache.put(shoppingCarDto.getSkuId(), sku);
+                // 商家不能购买自己店铺的商品
+                Spu spu = spuMapper.selectById(sku.getSpuId());
+                if (spu != null && userId.equals(spu.getMerchantId())) {
+                    log.error("用户{}不能购买自己店铺的商品{}", userId, sku.getSpuId());
+                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                    return;
+                }
                 // 秒杀订单用秒杀价，普通订单用售价
                 BigDecimal unitPrice = (isSeckill && sku.getSeckillPrice() != null)
                         ? sku.getSeckillPrice() : sku.getPrice();
@@ -89,7 +99,19 @@ public class MqReceiver {
             }
             Long couponId = orderDto.getCouponId();
             BigDecimal discountAmount = BigDecimal.ZERO;
+            UserCoupon userCoupon = null;
             if (couponId != null) {
+                // 校验优惠券归属：必须是该用户领取且未使用的券
+                LambdaQueryWrapper<UserCoupon> ucWrapper = new LambdaQueryWrapper<>();
+                ucWrapper.eq(UserCoupon::getUserId, userId)
+                        .eq(UserCoupon::getCouponId, couponId)
+                        .eq(UserCoupon::getStatus, "UNUSED");
+                userCoupon = userCouponMapper.selectOne(ucWrapper);
+                if (userCoupon == null) {
+                    log.error("用户{}使用的优惠卷{}非本人持有或已使用,此次订单无效", userId, couponId);
+                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                    return;
+                }
                 LambdaQueryWrapper<Coupon> couponLambdaQueryWrapper = new LambdaQueryWrapper<>();
                 couponLambdaQueryWrapper.eq(Coupon::getId, couponId);
                 Coupon coupon = couponMapper.selectOne(couponLambdaQueryWrapper);
@@ -103,8 +125,14 @@ public class MqReceiver {
                 if (minAmount.compareTo(totalPrice) > 0) {
                     log.warn("当前消费金额{}还不到优惠卷{}的使用门槛{}", couponId, totalPrice, minAmount);
                 } else {
-                    discountAmount = discountValue;
-                    totalPrice = totalPrice.subtract(discountValue);
+                    // 满减券：直接减 discountValue；折扣券：按折扣比例减免
+                    if ("DISCOUNT".equals(coupon.getType())) {
+                        discountAmount = totalPrice.multiply(BigDecimal.ONE.subtract(discountValue));
+                    } else {
+                        discountAmount = discountValue;
+                    }
+                    totalPrice = totalPrice.subtract(discountAmount);
+                    totalPrice = totalPrice.compareTo(BigDecimal.ZERO)<=0?BigDecimal.valueOf(0.01):totalPrice;
                     compare += 1;
                 }
             } else {
@@ -151,29 +179,44 @@ public class MqReceiver {
                 skuLambdaQueryWrapper.eq(Sku::getSpuId, shoppingCarDto.getSpuId());
                 skuLambdaQueryWrapper.setSql("available_stock = available_stock - 1, locked_stock = locked_stock + 1"
                         .replace("1", String.valueOf(shoppingCarDto.getQuantity())));
-                skuMapper.update(null, skuLambdaQueryWrapper);
+                skuLambdaQueryWrapper.ge(Sku::getAvailableStock, shoppingCarDto.getQuantity());
+                int update = skuMapper.update(null, skuLambdaQueryWrapper);
+                if(update != 1) {
+                    throw new BusinessException("商品库存不足，订单创建失败");
+                }
                 orderItemMapper.insert(orderItem);
+            }
+            // 标记优惠券已使用（防重复使用）
+            if (compare > 0 && userCoupon != null) {
+                LambdaUpdateWrapper<UserCoupon> ucUpdate = new LambdaUpdateWrapper<>();
+                ucUpdate.eq(UserCoupon::getId, userCoupon.getId())
+                        .eq(UserCoupon::getStatus, "UNUSED")
+                        .set(UserCoupon::getStatus, "USED")
+                        .set(UserCoupon::getOrderId, order.getId())
+                        .set(UserCoupon::getUsedTime, new Date());
+                int updated = userCouponMapper.update(null, ucUpdate);
+                if (updated == 0) {
+                    log.error("优惠券{}已被并发使用，订单{}回滚", userCoupon.getId(), order.getOrderNo());
+                    throw new BusinessException("优惠券已被使用");
+                }
             }
             MqOrderDelayMessage message = new MqOrderDelayMessage();
             message.setMessageId(UUID.randomUUID().toString());
             message.setUserId(userId);
             message.setOrderNo(order.getOrderNo());
-            // 清理购物车中已下单的商品
-            LambdaQueryWrapper<ShoppingCar> carWrapper = new LambdaQueryWrapper<>();
-            carWrapper.eq(ShoppingCar::getUserId, userId);
-            shoppingCarMapper.delete(carWrapper);
+            // 清理购物车中本次下单的商品（只删下单的 SKU，不误删其他商品）
+            for (ShoppingCarDto carItem : list) {
+                LambdaQueryWrapper<ShoppingCar> carWrapper = new LambdaQueryWrapper<>();
+                carWrapper.eq(ShoppingCar::getUserId, userId)
+                        .eq(ShoppingCar::getSkuId, carItem.getSkuId());
+                shoppingCarMapper.delete(carWrapper);
+            }
             mqSender.orderDelaySend(MqConstant.MQ_ORDER_DELAY_EXCHANGE, MqConstant.MQ_ORDER_DELAY_ROUTING_KEY, message);
             log.info("订单{}创建成功，共{}件商品，实付{}元", order.getOrderNo(), list.size(), order.getPayAmount());
         } catch (Exception e) {
             // DB 回滚后删除 Redis 幂等 key，允许消息重试
             redisTemplate.delete(messageId);
             log.warn("订单处理失败，已清除幂等标记，等待重试: {}", e.getMessage());
-            ShoppingCarDto carDto = orderDto.getCar().get(0);
-            Long skuId = carDto.getSkuId();
-            String stockKey=ResultMsgConstant.REDIS_SECKILL_STOCK_PREFIX+":"+skuId;
-            if(orderMessage.getOrderType().equals("SECKILL")){
-                redisTemplate.opsForValue().increment(stockKey);
-            }
             throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
         } finally {
             MDC.clear();

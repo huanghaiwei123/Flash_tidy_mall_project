@@ -21,8 +21,15 @@
 
 <div class="fm-container">
   <div class="container">
-    <!-- 首页 Banner -->
-    <div class="fm-banner">潮汐商城 · 好物低价</div>
+    <!-- 首页轮播 Banner -->
+    <div class="fm-banner" id="bannerCarousel">
+      <div class="carousel-inner" id="carouselInner">
+        <div class="carousel-item active">潮汐商城 · 好物低价</div>
+        <div class="carousel-item">品质生活 · 从这里开始</div>
+        <div class="carousel-item">每日秒杀 · 限时特惠</div>
+      </div>
+      <div class="carousel-dots" id="carouselDots"></div>
+    </div>
 
     <!-- 商品区 -->
     <div class="fm-section-title">新品好物<span class="sub">为您精选</span></div>
@@ -152,6 +159,39 @@ function getUrlParam(name) {
 }
 
 function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+// ====== 轮播 ======
+var currentSlide = 0;
+var slides = document.querySelectorAll('.carousel-item');
+var dotsContainer = document.getElementById('carouselDots');
+
+function initCarousel() {
+  if (!slides.length) return;
+  // 生成圆点
+  var dotsHtml = '';
+  for (var i = 0; i < slides.length; i++) {
+    dotsHtml += '<span data-idx="' + i + '" onclick="goToSlide(' + i + ')"></span>';
+  }
+  dotsContainer.innerHTML = dotsHtml;
+  updateDots();
+  // 自动轮播
+  setInterval(function() { goToSlide((currentSlide + 1) % slides.length); }, 4000);
+}
+
+function goToSlide(idx) {
+  slides[currentSlide].classList.remove('active');
+  slides[idx].classList.add('active');
+  currentSlide = idx;
+  updateDots();
+}
+
+function updateDots() {
+  var dots = dotsContainer.querySelectorAll('span');
+  dots.forEach(function(d, i) { d.classList.toggle('active', i === currentSlide); });
+}
+
+// 初始化
+initCarousel();
 
 // 初始化
 var initKw = getUrlParam('keyword');

@@ -74,9 +74,11 @@ function renderOrders() {
         var itemSt = itemStMap[item.itemStatus] || '';
         itemsHtml +=
           '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f0f0f0;">' +
-          '  <img src="' + (item.skuImage || '') + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" onerror="this.style.display=\'none\'">' +
+          '  <a href="http://localhost:8080/goods-detail.html?id=' + item.spuId + '">' +
+          '    <img src="' + (item.skuImage || '') + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" onerror="this.style.display=\'none\'">' +
+          '  </a>' +
           '  <div style="flex:1;">' +
-          '    <div style="font-weight:500;">' + esc(item.skuName || '') + '</div>' +
+          '    <div style="font-weight:500;"><a href="http://localhost:8080/goods-detail.html?id=' + item.spuId + '" style="color:inherit;text-decoration:none;">' + esc(item.skuName || '') + '</a></div>' +
           '    <div style="color:#999;font-size:12px;">' + esc(item.skuSpec || '') + '</div>' +
           '  </div>' +
           '  <div style="text-align:right;">' +

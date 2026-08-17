@@ -164,6 +164,15 @@ public class UseSeckillServiceImpl implements UserSeckillService {
         List<ShoppingCarDto> car = orderDto.getCar();
         ShoppingCarDto shoppingCarDto = car.get(0);
         Long skuId = shoppingCarDto.getSkuId();
+        // 商家不能秒杀自己店铺的商品
+        Sku sku = skuMapper.selectById(skuId);
+        if (sku != null) {
+            Spu spu = spuMapper.selectById(sku.getSpuId());
+            if (spu != null && userId.equals(spu.getMerchantId())) {
+                seckillMetrics.recordResult("fail");
+                return Result.Fail("不能秒杀自己店铺的商品");
+            }
+        }
         String stockKey=ResultMsgConstant.REDIS_SECKILL_STOCK_PREFIX+":"+skuId;
         String startTimeKey = ResultMsgConstant.REDIS_SECKILL_STARTTIME_PREFIX + ":" + skuId;
         String endTimeKey = ResultMsgConstant.REDIS_SECKILL_ENDTIME_PREFIX + ":" + skuId;

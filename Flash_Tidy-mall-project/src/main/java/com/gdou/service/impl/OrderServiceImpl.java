@@ -211,6 +211,23 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order>
         if(orderDto.getCar().isEmpty()){
             throw new BusinessException("没有购物车商品可以结算,请检查");
         }
+        for (ShoppingCarDto shoppingCarDto : orderDto.getCar()) {
+            Integer quantity = shoppingCarDto.getQuantity();
+            Long skuId = shoppingCarDto.getSkuId();
+            LambdaQueryWrapper<Sku> skuLambdaQueryWrapper = new LambdaQueryWrapper<>();
+            skuLambdaQueryWrapper.eq(Sku::getId, skuId);
+            Sku sku = skuMapper.selectOne(skuLambdaQueryWrapper);
+            if(sku.getAvailableStock()<quantity){
+                log.error("商品{}库存不足",skuId);
+                return  Result.Fail("商品库存不足,订单创建失败");
+            }
+            // 商家不能购买自己店铺的商品
+            Spu spu = spuMapper.selectById(sku.getSpuId());
+            if (spu != null && userId.equals(spu.getMerchantId())) {
+                throw new BusinessException("不能购买自己店铺的商品");
+            }
+        }
+
         MqOrderMessage message = new MqOrderMessage();
         message.setUserId(userId);
         message.setOrderDto(orderDto);

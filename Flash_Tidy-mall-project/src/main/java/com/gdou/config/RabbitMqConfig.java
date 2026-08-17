@@ -7,10 +7,13 @@ import com.gdou.pojo.entity.MqMessageLog;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -23,8 +26,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Configuration
 @Slf4j
 public class RabbitMqConfig  {
-    @Autowired
-    private RabbitTemplate rabbitTemplate;
     @Autowired
     private MqMessageLogMapper mqMessageLogMapper;
     /**
@@ -172,9 +173,12 @@ public class RabbitMqConfig  {
         return executor;
     }
 
-    @PostConstruct
-    public void init(){
-//        消息发送到交换机的确认回调
+    @Bean
+    public  RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory,MessageConverter messageConverter) {
+        RabbitTemplate rabbitTemplate = new RabbitTemplate();
+        rabbitTemplate.setConnectionFactory(connectionFactory);
+        rabbitTemplate.setMessageConverter(messageConverter);
+        //        消息发送到交换机的确认回调
         rabbitTemplate.setConfirmCallback((correlationData, ack, cause) -> {
             if(correlationData==null){
                 return;
@@ -201,7 +205,7 @@ public class RabbitMqConfig  {
         rabbitTemplate.setReturnCallback((message, replyCode, replyText, exchange, routingKey) -> {
             log.info("消息路由失败，message={},replyCode={},replyText={},exchange={},routingKey={}",message,replyCode,replyText,exchange,routingKey);
         });
+        return rabbitTemplate;
     }
-
 
 }

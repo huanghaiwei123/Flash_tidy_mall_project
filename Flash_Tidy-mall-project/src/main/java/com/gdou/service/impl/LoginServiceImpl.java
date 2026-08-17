@@ -27,28 +27,21 @@ public class LoginServiceImpl implements LoginService {
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getPhone, phone);
         User user = userMapper.selectOne(wrapper);
-        if (user!=null) {
-            String password = user.getPassword();
-            Long userId = user.getId();
-            boolean verify = PasswordEncrypt.verify(loginDto.getPassword(), password);
-            if (verify) {
-                Map<String,Object> map = new HashMap<>();
-                String jwt = jwtUtil.jwtGenerate(userId, phone);
-                map.put("token", jwt);
-                // 返回用户信息，前端存入 localStorage 避免每次查库
-                map.put("userId", userId);
-                map.put("nickname", user.getNickname());
-                map.put("phone", user.getPhone());
-                map.put("email", user.getEmail());
-                map.put("avatar", user.getAvatar());
-                map.put("gender", user.getGender());
-                return Result.success("用户登录成功", map);
-            }else{
-                return Result.Fail("用户Token无效，请重试");
-            }
-        }else{
-            log.error("用户未注册，请前往注册");
-            return Result.Fail("用户未注册，请前往注册");
+        // 统一提示"手机号或密码错误"，避免暴露账号是否存在（防枚举）
+        if (user != null && PasswordEncrypt.verify(loginDto.getPassword(), user.getPassword())) {
+            Map<String,Object> map = new HashMap<>();
+            String jwt = jwtUtil.jwtGenerate(user.getId(), phone);
+            map.put("token", jwt);
+            // 返回用户信息，前端存入 localStorage 避免每次查库
+            map.put("userId", user.getId());
+            map.put("nickname", user.getNickname());
+            map.put("phone", user.getPhone());
+            map.put("email", user.getEmail());
+            map.put("avatar", user.getAvatar());
+            map.put("gender", user.getGender());
+            return Result.success("用户登录成功", map);
         }
+        log.warn("用户{}登录失败：手机号或密码错误", phone);
+        return Result.Fail("手机号或密码错误");
     }
 }
