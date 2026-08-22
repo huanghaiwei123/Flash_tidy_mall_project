@@ -124,8 +124,34 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order>
 
     @Override
     public Result orderQueryListByUser(Long userId) {
+        return orderQueryListByUser(userId, null, null);
+    }
+
+    @Override
+    public Result orderQueryListByUser(Long userId, String status) {
+        return orderQueryListByUser(userId, status, null);
+    }
+
+    @Override
+    public Result orderQueryListByUser(Long userId, String status, String keyword) {
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Order::getUserId, userId);
+        if (status != null && !status.isEmpty()) {
+            wrapper.eq(Order::getStatus, status);
+        }
+        // 按商品关键词过滤时先查订单 ID 集合
+        if (keyword != null && !keyword.isEmpty()) {
+            LambdaQueryWrapper<OrderItem> itemWrapper = new LambdaQueryWrapper<>();
+            itemWrapper.select(OrderItem::getOrderId);
+            itemWrapper.and(w -> w.like(OrderItem::getSkuName, keyword).or().like(OrderItem::getSkuSpec, keyword));
+            itemWrapper.groupBy(OrderItem::getOrderId);
+            List<OrderItem> matchedItems = orderItemMapper.selectList(itemWrapper);
+            if (matchedItems.isEmpty()) {
+                return Result.success("订单查询成功", Collections.emptyList());
+            }
+            List<Long> orderIds = matchedItems.stream().map(OrderItem::getOrderId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
+            wrapper.in(Order::getId, orderIds);
+        }
         wrapper.orderByDesc(Order::getCreateTime);
         List<Order> orders = orderMapper.selectList(wrapper);
         if (orders.isEmpty()) {

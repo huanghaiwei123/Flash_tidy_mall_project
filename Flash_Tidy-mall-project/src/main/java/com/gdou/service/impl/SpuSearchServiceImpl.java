@@ -72,7 +72,7 @@ private volatile Date lastSyncTime;
             SpuDoc spuDoc = new SpuDoc();
             BeanUtils.copyProperties(spu,spuDoc);
 //            判断商品是否有规格
-            minPrice=skus.isEmpty()?0.0:minPrice;
+            minPrice=skus.isEmpty()?0.1:minPrice;
             spuDoc.setMinPrice(minPrice);
             spuDoc.setSkuCount(skus.size());
             spuDocList.add(spuDoc);
@@ -185,6 +185,42 @@ private volatile Date lastSyncTime;
         return Result.success(result);
 
     }
+
+//    精准搜索：只搜 name + brand，避免手机/耳机混搜
+    @Override
+    public Result searchByName(String keyword, Integer page, Integer size) {
+        if (page == null || page < 1) page = 1;
+        if (size == null || size < 1) size = 20;
+
+        BoolQueryBuilder bool = QueryBuilders.boolQuery();
+        bool.filter(QueryBuilders.termQuery("status", 1));
+        if (StringUtils.hasText(keyword)) {
+            bool.must(QueryBuilders.multiMatchQuery(keyword.trim(), "name", "brand"));
+        }
+
+        NativeSearchQuery query = new NativeSearchQueryBuilder()
+                .withQuery(bool)
+                .withSorts(
+                        SortBuilders.fieldSort("sales").order(SortOrder.DESC),
+                        SortBuilders.fieldSort("createTime").order(SortOrder.DESC))
+                .withPageable(PageRequest.of(page - 1, size))
+                .build();
+
+        SearchHits<SpuDoc> hits = operations.search(query, SpuDoc.class);
+
+        List<SpuListVo> voList = hits.getSearchHits().stream()
+                .map(SearchHit::getContent)
+                .map(this::toVo)
+                .collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("total", hits.getTotalHits());
+        result.put("page", page);
+        result.put("size", size);
+        result.put("records", voList);
+        return Result.success(result);
+    }
+
 // ==================== 内部工具方法 ====================
 
     /** SpuDoc -> SpuListVo（minPrice 从 Double 转回 BigDecimal） */

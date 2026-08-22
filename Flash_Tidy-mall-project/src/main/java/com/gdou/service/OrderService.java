@@ -18,6 +18,21 @@ public interface OrderService extends IService<Order> {
 
     Result orderQueryListByUser(Long userId);
 
+    /**
+     * 查询用户订单（可选状态过滤）
+     * @param userId 用户ID
+     * @param status 订单状态（PENDING_PAY/PAID/SHIPPED/RECEIVED/COMPLETED/CANCELLED/REFUNDING/REFUNDED），可空表示不限制
+     */
+    Result orderQueryListByUser(Long userId, String status);
+
+    /**
+     * 查询用户订单（可选状态 + 商品关键词过滤）
+     * @param userId 用户ID
+     * @param status 订单状态，可空
+     * @param keyword 商品关键词（匹配订单明细的 skuName/skuSpec），只返回包含此关键词的订单；可空表示不限制
+     */
+    Result orderQueryListByUser(Long userId, String status, String keyword);
+
     Result orderQueryListByMerchant(Long merchantId);
 
     Result orderCancel(Long userId, String orderNo);

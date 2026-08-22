@@ -212,9 +212,28 @@ function submitMerchantApply(e) {
   });
 }
 
+// ====== 首页 AI 客服悬浮入口（中间偏右，4cm×4cm，仅首页显示） ======
+function renderAssistantFloat() {
+  if (document.getElementById('assistantFloat')) return;
+  // 只在首页显示悬浮客服
+  var path = window.location.pathname;
+  if (path !== '/' && path !== '/index.html' && !path.endsWith('/index.html')) {
+    return;
+  }
+  var div = document.createElement('div');
+  div.id = 'assistantFloat';
+  div.innerHTML =
+    '<div class="assistant-float" onclick="window.location.href=\'http://localhost:8080/assistant.html\'" title="AI 智能客服助手">' +
+    '  <video class="assistant-float-video" src="http://localhost:8080/img/products/assistant.mp4" muted loop autoplay playsinline></video>' +
+    '  <span class="assistant-float-tag">AI 助手</span>' +
+    '</div>';
+  document.body.appendChild(div);
+}
+
 // ====== 页面初始化 ======
 document.addEventListener('DOMContentLoaded', function () {
   renderNavbar();
+  renderAssistantFloat();
   // 需要登录的页面检查
   var needAuth = document.body.dataset.auth === 'true';
   if (needAuth && !isLogin()) {

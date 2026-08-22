@@ -87,3 +87,10 @@ management:
   metrics:
     tags:
       application: flash-mall
+
+
+# Ollama 本地模型
+ollama:
+  base-url: http://localhost:11434
+  model: qwen2.5:3b
+  temperature: 0.7

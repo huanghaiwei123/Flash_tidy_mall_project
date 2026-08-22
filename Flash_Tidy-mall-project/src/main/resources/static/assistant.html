@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>潮汐商城 - AI 智能客服</title>
+<link rel="stylesheet" href="http://localhost:8080/css/style.css">
+<link rel="icon" type="image/png" href="http://localhost:8080/img/logo.png">
+<style>
+.chat-page { max-width: 820px; margin: 80px auto 40px; padding: 0 16px; }
+.chat-header { text-align: center; margin-bottom: 20px; }
+.chat-header h2 { font-size: 22px; color: #1a2b4a; margin-bottom: 4px; }
+.chat-header p { font-size: 13px; color: #888; }
+.chat-box { background: #f8f9fb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; min-height: 400px; max-height: 520px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.chat-msg { display: flex; gap: 10px; max-width: 92%; }
+.chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.chat-msg.bot { align-self: flex-start; }
+.chat-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.chat-msg.user .chat-avatar { background: #e8f0fe; }
+.chat-msg.bot .chat-avatar { background: #fff3e0; }
+.chat-bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.7; word-break: break-word; }
+.chat-msg.user .chat-bubble { background: #3b82f6; color: #fff; border-bottom-right-radius: 2px; }
+.chat-msg.bot .chat-bubble { background: #fff; color: #333; border: 1px solid #e5e7eb; border-bottom-left-radius: 2px; }
+.chat-bubble.thinking { color: #999; font-style: italic; }
+.chat-bubble ul { margin: 8px 0; padding-left: 18px; }
+.chat-bubble li { margin: 4px 0; }
+.chat-bubble strong { color: #f97316; }
+.chat-input-wrap { display: flex; gap: 10px; margin-top: 16px; }
+.chat-input { flex: 1; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; transition: border-color .2s; }
+.chat-input:focus { border-color: #3b82f6; }
+.chat-send-btn { padding: 12px 24px; background: #f97316; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; white-space: nowrap; transition: background .2s; }
+.chat-send-btn:hover { background: #ea580c; }
+.chat-send-btn:disabled { background: #ccc; cursor: not-allowed; }
+.chat-hint { text-align: center; margin-top: 12px; font-size: 12px; color: #aaa; }
+
+/* 商品卡片区（跟随在 AI 回复下方） */
+.product-cards-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+.product-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+.product-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+.product-card img { width: 100%; height: 130px; object-fit: cover; display: block; background: #f1f5f9; }
+.product-card .info { padding: 10px; }
+.product-card .name { font-size: 13px; color: #333; line-height: 1.4; height: 38px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.product-card .price { font-size: 15px; color: #f97316; font-weight: 600; margin-top: 6px; }
+.product-card .meta { font-size: 11px; color: #888; margin-top: 4px; }
+
+/* 订单卡片 */
+.order-cards-wrap { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.order-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: box-shadow .2s; }
+.order-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.order-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.order-card-no { font-size: 12px; color: #888; }
+.order-status { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.order-status.PENDING_PAY { background: #fff3e0; color: #f97316; }
+.order-status.PAID { background: #e0f2fe; color: #0284c7; }
+.order-status.SHIPPED { background: #ddd6fe; color: #7c3aed; }
+.order-status.RECEIVED { background: #dcfce7; color: #16a34a; }
+.order-status.COMPLETED { background: #e0e7ff; color: #4f46e5; }
+.order-status.CANCELLED { background: #f1f5f9; color: #64748b; }
+.order-status.REFUNDING { background: #fef3c7; color: #d97706; }
+.order-status.REFUNDED { background: #fce7f3; color: #db2777; }
+.order-card-items { margin: 8px 0; }
+.order-card-item { font-size: 13px; color: #333; padding: 3px 0; line-height: 1.5; }
+.order-card-item .shop { color: #888; font-size: 11px; margin-right: 4px; }
+.order-card-bottom { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px dashed #e5e7eb; }
+.order-card-time { font-size: 11px; color: #aaa; }
+.order-card-amount { font-size: 14px; color: #f97316; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="navbar"></div>
+
+<div class="chat-page">
+  <div class="chat-header">
+    <h2>🤖 AI 智能客服</h2>
+    <p>我可以帮你搜索商品、查询订单，有什么可以帮你的？</p>
+  </div>
+
+  <div class="chat-box" id="chatBox">
+    <div class="chat-msg bot" id="welcomeMsg">
+      <div class="chat-avatar">🤖</div>
+      <div class="chat-bubble">你好！我是潮汐商城的 AI 助手，可以帮你搜索商品、查询订单等。请问有什么可以帮你的？</div>
+    </div>
+  </div>
+
+  <div class="chat-input-wrap">
+    <input type="text" class="chat-input" id="chatInput" placeholder="输入你的问题，例如：有没有蓝牙耳机？" autocomplete="off">
+    <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()">发送</button>
+  </div>
+  <div class="chat-hint">按 Enter 发送消息 · 回复由本地 AI 模型生成，仅供参考</div>
+</div>
+
+<script src="http://localhost:8080/js/api.js"></script>
+<script src="http://localhost:8080/js/common.js"></script>
+<script>
+var chatBox = document.getElementById('chatBox');
+var chatInput = document.getElementById('chatInput');
+var chatSendBtn = document.getElementById('chatSendBtn');
+
+chatInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+function appendMsg(role, html, products) {
+  var div = document.createElement('div');
+  div.className = 'chat-msg ' + role;
+  var avatar = role === 'user' ? '👤' : '🤖';
+  div.innerHTML =
+    '<div class="chat-avatar">' + avatar + '</div>' +
+    '<div class="chat-bubble">' + html + '</div>';
+  chatBox.appendChild(div);
+
+  if (products && products.length > 0) {
+    var cardsDiv = document.createElement('div');
+    cardsDiv.className = 'product-cards-wrap';
+    cardsDiv.innerHTML = products.map(renderProductCard).join('');
+    chatBox.appendChild(cardsDiv);
+  }
+
+  chatBox.scrollTop = chatBox.scrollHeight;
+  return div;
+}
+
+function renderProductCard(p) {
+  var img = p.mainImage ? p.mainImage : 'http://localhost:8080/img/logo.png';
+  var price = p.minPrice ? '¥' + p.minPrice : '暂无报价';
+  var meta = [p.brand, p.categoryName, '销量 ' + (p.sales || 0)].filter(Boolean).join(' · ');
+  return '<div class="product-card" onclick="window.location.href=\'http://localhost:8080/goods-detail.html?id=' + p.id + '\'">' +
+    '<img src="' + img + '" alt="' + escapeHtml(p.name) + '" onerror="this.src=\'http://localhost:8080/img/logo.png\'">' +
+    '<div class="info">' +
+      '<div class="name">' + escapeHtml(p.name) + '</div>' +
+      '<div class="price">' + price + '</div>' +
+      '<div class="meta">' + escapeHtml(meta) + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderOrderCard(o) {
+  var statusLabel = ({PENDING_PAY:'待支付',PAID:'已支付',SHIPPED:'已发货',RECEIVED:'已收货',COMPLETED:'已完成',CANCELLED:'已取消',REFUNDING:'退款中',REFUNDED:'已退款'})[o.status] || o.status;
+  var itemsHtml = (o.items || []).map(function(it) {
+    return '<div class="order-card-item">' +
+      (it.merchantName ? '<span class="shop">[' + escapeHtml(it.merchantName) + ']</span>' : '') +
+      escapeHtml(it.skuName) +
+      (it.quantity ? ' ×' + it.quantity : '') +
+    '</div>';
+  }).join('');
+  return '<div class="order-card">' +
+    '<div class="order-card-top">' +
+      '<span class="order-card-no">订单：' + escapeHtml(o.orderNo || '') + '</span>' +
+      '<span class="order-status ' + escapeHtml(o.status || '') + '">' + statusLabel + '</span>' +
+    '</div>' +
+    '<div class="order-card-items">' + itemsHtml + '</div>' +
+    '<div class="order-card-bottom">' +
+      '<span class="order-card-time">' + escapeHtml(o.createTime || '') + '</span>' +
+      '<span class="order-card-amount">¥' + (o.totalAmount || '0') + '</span>' +
+    '</div>' +
+  '</div>';
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  var d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function renderMarkdown(text) {
+  if (!text) return '';
+  // 处理代码块
+  text = text.replace(/```([\s\S]*?)```/g, '<pre style="background:#f5f5f5;padding:10px;border-radius:6px;overflow:auto;"><code>$1</code></pre>');
+  // 处理 **粗体**
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // 处理 *斜体*
+  text = text.replace(/(^|[^*])\*(.*?)\*([^*]|$)/g, '$1<em>$2</em>$3');
+
+  // 按行解析
+  var lines = text.split('\n');
+  var html = '';
+  var inList = false; // ul or ol
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var ulMatch = line.match(/^[-*]\s+(.*)$/);
+    var olMatch = line.match(/^\d+\.\s+(.*)$/);
+
+    if (ulMatch) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += '<li>' + ulMatch[1] + '</li>';
+    } else if (olMatch) {
+      if (!inList) { html += '<ol>'; inList = true; }
+      html += '<li>' + olMatch[1] + '</li>';
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (line.trim() === '') {
+        html += '<br>';
+      } else {
+        html += '<div style="margin:2px 0">' + line + '</div>';
+      }
+    }
+  }
+  if (inList) html += '</ul>';
+  return html;
+}
+
+async function sendMessage() {
+  var msg = chatInput.value.trim();
+  if (!msg) return;
+
+  var token = localStorage.getItem('token');
+  if (!token) {
+    appendMsg('bot', '请先登录后再使用客服功能。');
+    return;
+  }
+
+  appendMsg('user', escapeHtml(msg));
+  chatInput.value = '';
+  chatSendBtn.disabled = true;
+
+  var botMsgDiv = document.createElement('div');
+  botMsgDiv.className = 'chat-msg bot';
+  botMsgDiv.innerHTML = '<div class="chat-avatar">🤖</div><div class="chat-bubble thinking">正在思考...</div>';
+  chatBox.appendChild(botMsgDiv);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  var bubble = botMsgDiv.querySelector('.chat-bubble');
+  var accumulated = '';
+  var products = [];
+  var orders = [];
+  var isFirstChunk = true;
+
+  try {
+    var resp = await fetch('http://localhost:8080/hhw/assistant/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ message: msg })
+    });
+
+    if (!resp.ok || !resp.body) {
+      throw new Error('请求失败：' + resp.status);
+    }
+
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder('utf-8');
+    var buffer = '';
+
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+
+      var blocks = buffer.split('\n\n');
+      buffer = blocks.pop(); // 不完整的先保留
+
+      for (var i = 0; i < blocks.length; i++) {
+        var block = blocks[i].trim();
+        if (!block) continue;
+
+        var eventName = 'message';
+        var dataLines = [];
+        var blockLines = block.split('\n');
+        for (var j = 0; j < blockLines.length; j++) {
+          var bLine = blockLines[j].trim();
+          if (bLine.startsWith('event:')) {
+            eventName = bLine.substring(6).trim();
+          } else if (bLine.startsWith('data:')) {
+            dataLines.push(bLine.substring(5).trim());
+          }
+        }
+        var dataStr = dataLines.join('\n');
+        if (!dataStr) continue;
+
+        if (eventName === 'done') continue;
+
+        if (eventName === 'products') {
+          try {
+            products = JSON.parse(dataStr);
+          } catch (e) {
+            console.error('products parse error', dataStr);
+          }
+          continue;
+        }
+
+        if (eventName === 'orders') {
+          try {
+            orders = JSON.parse(dataStr);
+          } catch (e) {
+            console.error('orders parse error', dataStr);
+          }
+          continue;
+        }
+
+        if (eventName === 'error') {
+          bubble.classList.remove('thinking');
+          bubble.innerHTML = '出错了：' + escapeHtml(dataStr);
+          chatSendBtn.disabled = false;
+          return;
+        }
+
+        if (isFirstChunk) {
+          bubble.classList.remove('thinking');
+          isFirstChunk = false;
+        }
+        accumulated += dataStr;
+        bubble.innerHTML = renderMarkdown(accumulated);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    }
+
+    bubble.innerHTML = renderMarkdown(accumulated || '（没有收到回复）');
+
+    if (products && products.length > 0) {
+      var cardsDiv = document.createElement('div');
+      cardsDiv.className = 'product-cards-wrap';
+      cardsDiv.innerHTML = products.map(renderProductCard).join('');
+      chatBox.appendChild(cardsDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    if (orders && orders.length > 0) {
+      var orderCardsDiv = document.createElement('div');
+      orderCardsDiv.className = 'order-cards-wrap';
+      orderCardsDiv.innerHTML = orders.map(renderOrderCard).join('');
+      chatBox.appendChild(orderCardsDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  } catch (err) {
+    bubble.classList.remove('thinking');
+    bubble.innerHTML = '网络异常，请稍后重试。';
+    console.error('Agent chat error:', err);
+  } finally {
+    chatSendBtn.disabled = false;
+    chatInput.focus();
+  }
+}
+</script>
+</body>
+</html>

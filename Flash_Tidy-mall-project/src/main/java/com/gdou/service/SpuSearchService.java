@@ -25,4 +25,9 @@ public interface SpuSearchService {
      * @param keyword     关键词（可为空）
      */
     Result search(Set<Long> categoryIds, String keyword, Integer page, Integer size);
+
+    /**
+     * 精准搜索：只搜 name + brand，不搜 description，避免手机/耳机混搜
+     */
+    Result searchByName(String keyword, Integer page, Integer size);
 }
