@@ -1,6 +1,7 @@
 package com.gdou.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gdou.agent.prompt.AgentPrompts;
 import com.gdou.common.Result;
 import com.gdou.pojo.vo.SpuListVo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,16 +25,11 @@ public class AgentService {
     @Autowired
     private List<Tool> tools;  //Spring会自动注入所有Tool类型的bean
 
+    @Autowired
+    private AgentPrompts agentPrompts;
+
     /** 最多工具调用轮数，防止死循环 */
     private static final int MAX_TURNS = 5;
-
-    private static final String SYSTEM_PROMPT =
-            "你是潮汐商城客服。规则：\n" +
-            "1. 用户问商品就调用search_goods，把用户提到的商品关键词填到keyword参数，例如用户说“有什么耳机”，keyword=“耳机”。\n" +
-            "2. 用户问订单就调用query_orders；用户提到商品（如“耳机订单”）时，把商品关键词填到keyword参数；用户提到状态（如“已支付、已取消”）时，把对应状态填到status参数（PENDING_PAY/PAID/SHIPPED/RECEIVED/COMPLETED/CANCELLED/REFUNDING/REFUNDED）。\n" +
-            "3. 工具返回了多少商品/订单，你就要逐条列出多少条，不能遗漏，不能说没找到。\n" +
-            "4. 每个商品用序号分点，格式：\n**商品名**\n品牌：xx | 价格：¥xx | 销量：xx\n" +
-            "5. 禁止编造。";
 
     /**
      * 非流式对话：返回完整文本 + 商品卡片数据
@@ -107,14 +103,14 @@ public class AgentService {
 
         Map<String, Object> systemMap = new HashMap<>();
         systemMap.put("role", "system");
-        systemMap.put("content", SYSTEM_PROMPT);
+        systemMap.put("content", agentPrompts.getSystemPrompt());
         ctx.messages.add(systemMap);
 
         // 注入当前时间，让模型能识别"今年"、"上个月"等时间词
         Map<String, Object> timeMap = new HashMap<>();
         timeMap.put("role", "system");
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        timeMap.put("content", "当前时间：" + now + "（今年=" + now.getYear() + "年）");
+        timeMap.put("content", AgentPrompts.buildTimePrompt(now));
         ctx.messages.add(timeMap);
 
         Map<String, Object> userMap = new HashMap<>();
