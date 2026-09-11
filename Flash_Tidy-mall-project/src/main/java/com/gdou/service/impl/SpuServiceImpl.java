@@ -3,6 +3,9 @@ package com.gdou.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gdou.cache.DoubleCacheService;
 import com.gdou.common.Result;
 import com.gdou.exception.BusinessException;
 import com.gdou.mapper.CategoryMapper;
@@ -45,6 +48,10 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
     private SkuMapper skuMapper;
     @Autowired
     private SpuSearchService spuSearchService;
+    @Autowired
+    private DoubleCacheService doubleCacheService;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     // ===================== 商家端 =====================
 
@@ -121,6 +128,8 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
         }
         spu.setUpdateTime(new Date());
         updateById(spu);
+        // 清缓存，防止用户读到旧商品信息
+        doubleCacheService.evict("spu:" + spuId);
         log.info("商家{}更新商品：{}", merchantId, spu.getName());
         return Result.success("商品更新成功", spu);
     }
@@ -141,6 +150,8 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
         spu.setStatus(status);
         spu.setUpdateTime(new Date());
         updateById(spu);
+        // 下架/上架也要清缓存，防止用户读到旧状态
+        doubleCacheService.evict("spu:" + spuId);
         String statusText = status == 1 ? "上架" : "下架";
         log.info("商家{}将商品{} {}", merchantId, spuId, statusText);
         return Result.success("商品已" + statusText);
@@ -227,24 +238,34 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
 
     @Override
     public Result userSpuDetail(Long spuId) {
-        Spu spu = spuMapper.selectById(spuId);
-        if (spu == null || spu.getStatus() == 0) {
-            return Result.Fail("商品不存在或已下架");
+        String key="spu:"+spuId;
+        String result = doubleCacheService.get(key, () -> {
+            Spu spu = spuMapper.selectById(spuId);
+            if (spu == null || spu.getStatus() == 0) {
+                log.info("id为{}商品信息不存在", spuId);
+                return null;
+            }
+            SpuDetailVo vo = new SpuDetailVo();
+            BeanUtils.copyProperties(spu, vo);
+            // 查上架 SKU
+            LambdaQueryWrapper<Sku> skuWrapper = new LambdaQueryWrapper<>();
+            skuWrapper.eq(Sku::getSpuId, spuId)
+                    .eq(Sku::getStatus, 1)
+                    .orderByAsc(Sku::getSort)
+                    .orderByAsc(Sku::getPrice);
+            List<Sku> skuList = skuMapper.selectList(skuWrapper);
+            vo.setSkuList(skuList);
+            try {
+                return objectMapper.writeValueAsString(vo);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        try {
+            log.info("用户查看商品详情：spuId={}", spuId);
+            return Result.success(objectMapper.readValue(result, SpuDetailVo.class));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
-
-        SpuDetailVo vo = new SpuDetailVo();
-        BeanUtils.copyProperties(spu, vo);
-
-        // 查上架 SKU
-        LambdaQueryWrapper<Sku> skuWrapper = new LambdaQueryWrapper<>();
-        skuWrapper.eq(Sku::getSpuId, spuId)
-                 .eq(Sku::getStatus, 1)
-                 .orderByAsc(Sku::getSort)
-                 .orderByAsc(Sku::getPrice);
-        List<Sku> skuList = skuMapper.selectList(skuWrapper);
-        vo.setSkuList(skuList);
-
-        log.info("用户查看商品详情：spuId={}", spuId);
-        return Result.success(vo);
     }
 }

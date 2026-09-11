@@ -23,6 +23,11 @@ spring:
         max-idle: 50
         min-idle: 10
         max-wait: 3000ms
+    redisson:
+      config: |
+        singleServerConfig:
+          address: redis://${REDIS_HOST:192.168.147.131}:6379
+
   rabbitmq:
     host: ${RABBITMQ_HOST:192.168.147.131}
     port: 5672
