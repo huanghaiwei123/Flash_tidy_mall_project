@@ -169,7 +169,6 @@ public class RabbitMqConfig  {
                 }
             };
         });
-
         return executor;
     }
 

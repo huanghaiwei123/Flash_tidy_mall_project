@@ -128,8 +128,8 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
         }
         spu.setUpdateTime(new Date());
         updateById(spu);
-        // 清缓存，防止用户读到旧商品信息
-        doubleCacheService.evict("spu:" + spuId);
+        // 更新数据库后先删一次缓存；事务提交后由延迟双删再次清理
+        doubleCacheService.evictWithDelay("spu:" + spuId);
         log.info("商家{}更新商品：{}", merchantId, spu.getName());
         return Result.success("商品更新成功", spu);
     }
@@ -150,8 +150,8 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, Spu>
         spu.setStatus(status);
         spu.setUpdateTime(new Date());
         updateById(spu);
-        // 下架/上架也要清缓存，防止用户读到旧状态
-        doubleCacheService.evict("spu:" + spuId);
+        // 更新数据库后先删一次缓存；事务提交后由延迟双删再次清理
+        doubleCacheService.evictWithDelay("spu:" + spuId);
         String statusText = status == 1 ? "上架" : "下架";
         log.info("商家{}将商品{} {}", merchantId, spuId, statusText);
         return Result.success("商品已" + statusText);
